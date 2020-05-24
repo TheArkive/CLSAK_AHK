@@ -108,6 +108,8 @@
 ;
 ;		mode "p" = Prune mode, remove prompt from StdOut data.  Mostly used with mode "i" / mode "b".
 ;
+;		mode "f" = Filter control codes from SSH prompt.
+;
 ;	workingDir:c:\myDir
 ;		Set working directory.  Defaults to %A_ScriptDir%.  Commands that generate files will put those
 ;		files here, unless otherwise specified in the command parameters.
@@ -219,7 +221,7 @@ class cli {
 		this.codepage := "CP0", this.workingDir := A_WorkingDir, this.ID := "", this.mode := "w"
 		this.output := "", this.error := "", this.cmdHistory := ""
 		this.hStdInRd := 0, this.hStdOutWr := 0, this.hStdOutRd := 0, this.hStdInWr := 0, this.hStdErrRd := 0
-		this.conWidth := 0, this.conHeight := 0
+		this.conWidth := 0, this.conHeight := 0, this.filter := false
 		
 		optGrp := StrSplit(options,"|") ; next load specified properties (options param)
 		Loop optGrp.Length {
@@ -298,8 +300,8 @@ class cli {
 		StdErrCallback := this.StdErrCallback, showWindow := this.showWindow, cmdCmd := this.cmdCmd
 		
 		If (!InStr(mode,"m")) { ; NOT mode "m"
-			DllCall("CreatePipe","Ptr*",hStdInRd:=0,"Ptr*",hStdInWr:=0,"Uint",0,"Uint",0)		; get handle - stdIn (R/W)
-			DllCall("CreatePipe","Ptr*",hStdOutRd:=0,"Ptr*",hStdOutWr:=0,"Uint",0,"Uint",0)	; get handle - stdOut (R/W)
+			DllCall("CreatePipe","Ptr*",hStdInRd:=0,"Ptr*",hStdInWr:=0,"Uint",0,"Uint",0) ; get handle - stdIn (R/W)
+			DllCall("CreatePipe","Ptr*",hStdOutRd:=0,"Ptr*",hStdOutWr:=0,"Uint",0,"Uint",0) ; get handle - stdOut (R/W)
 			
 			DllCall("SetHandleInformation","Ptr",hStdInRd,"Uint",1,"Uint",1)			; set flags inherit - stdIn
 			DllCall("SetHandleInformation","Ptr",hStdOutWr,"Uint",1,"Uint",1)			; set flags inherit - stdOut
@@ -311,7 +313,7 @@ class cli {
 			this.hStdInRd := hStdInRd, this.hStdOutWr := hStdOutWr, this.hStdOutRd := hStdOutRd
 			this.hStdInWr := hStdInWr, this.hStdErrRd := hStdErrRd
 			
-			if (A_PtrSize=4) {						; x86
+			if (A_PtrSize = 4) {					; x86
 				pi := BufferAlloc(16,0)				; PROCESS_INFORMATION structure
 				si := BufferAlloc(68,0)				; STARTUPINFO Structure
 				
@@ -362,7 +364,7 @@ class cli {
 			
 			r := DllCall("CreateProcess"
 				, "Uint", 0					; application name
-				, "Ptr", cmdBuf.ptr			; command line str ; this should be a buffer obj <------------------------------------ ***
+				, "Ptr", cmdBuf.ptr			; command line str
 				, "Uint", 0					; process attributes
 				, "Uint", 0					; thread attributes
 				, "Int", True			 	; inherit handles - defined in si
@@ -500,10 +502,12 @@ class cli {
 		If (!InStr(mode,"m")) {
 			buffer := this.fStdOutRd.read()						; check buffer
 			If (buffer) {
+				If (InStr(mode,"f"))
+					buffer := this.filterCtlCodes(buffer)
+				
 				lastLine := this.shellLastLine(buffer)			; looks for end of data and/or shell change
 				If (lastLine and InStr(mode,"p"))
 					buffer := this.removePrompt(buffer)
-					; buffer := RegExReplace(buffer,"\Q" lastLine "\E$","")
 				
 				If (InStr(mode,"o") And IsFunc(StdOutCallback))
 					%StdOutCallback%(buffer,ID)					; run callback function, or...
@@ -559,17 +563,12 @@ class cli {
 				lpCharacter := BufferAlloc(conWidth*conHeight*2,0)
 				dwBufferCoord := BufferAlloc(4,0)
 				
-				; VarSetCapacity(lpCharacter,conWidth*conHeight*2,0) ; console buffer size to collect
-				; VarSetCapacity(dwBufferCoord,4,0)
-				
 				result := DllCall("ReadConsoleOutputCharacter"
 								,"UInt",hStdOutRd ; console buffer handle
-								; ,"Str",lpCharacter:="" ; str buffer
 								,"Ptr",lpCharacter.ptr ; str buffer
 								,"UInt",conWidth * conHeight ; define console dimensions
 								,"uint",Numget(dwBufferCoord,"uint") ; start point >> 0,0
 								,"UInt*",lpNumberOfCharsRead:=0,"Int")
-				; size := VarSetCapacity(lpCharacter,-1)
 				size := lpCharacter.size
 				str := ""
 				Loop size/2 {
@@ -706,6 +705,7 @@ class cli {
 		netshRegEx := "[\r\n]*(netsh[ a-z0-9]*\>)$"
 		telnetRegEx := "[\r\n]*(\QMicrosoft Telnet>\E)$"
 		androidRegEx := "[\r\n]*([\-_a-zA-Z0-9]*\:[^\r\n]* \>)$"
+		sshRegEx := "[\r\n]*([a-z][a-z0-9_\-]+\@?[\w_\-\.]*\:[^`r`n]*?[\#\$][ `t]*)$"
 		
 		If (RegExMatch(str,netshRegEx,match)) {
 			this.shell := "netsh"
@@ -718,6 +718,9 @@ class cli {
 			result := match.Count() ? match.Value(1) : ""
 		} Else If (RegExMatch(str,androidRegEx,match)) {
 			this.shell := "android"
+			result := match.Count() ? match.Value(1) : ""
+		} Else If (RegExMatch(str,sshRegEx,match)) {
+			this.shell := "ssh"
 			result := match.Count() ? match.Value(1) : ""
 		} Else
 			result := ""
@@ -758,5 +761,25 @@ class cli {
 	}
 	Length() {
 		return this.fStdOutRd.Length
+	}
+	filterCtlCodes(buffer) {
+		buffer := RegExReplace(buffer,"\x1B\[\d+\;\d+H","`r`n")
+		buffer := RegExReplace(buffer,"`r`n`n","`r`n")
+		
+		r1 := "\x1B\[(m|J|K|X|L|M|P|\@|b|A|B|C|D|g|I|Z|k|e|a|j|E|F|G|\x60|d|H|f|s|u|r|S|T|c)"
+		r2 := "\x1B\[\d+(m|J|K|X|L|M|P|\@|b|A|B|C|D|g|I|Z|k|e|a|j|E|F|G|\x60|d|H|f|r|S|T|c|n|t)"
+		r3 := "\x1B(D|E|M|H|7|8|c)"
+		r4 := "\x1B\((0|B)"
+		r5 := "\x1B\[\??[\d]+\+?(h|l)|\x1B\[\!p"
+		r6 := "\x1B\[\d+\;\d+(m|r|f)"
+		r7 := "\x1B\[\?5(W|\;\d+W)"
+		r8 := "\x1B\]0\;[\w_\-\.\@ \:\~]+?\x07"
+		
+		allR := r1 "|" r2 "|" r3 "|" r4 "|" r5 "|" r6 "|" r7 "|" r8
+		buffer := RegExReplace(buffer,allR,"")
+		
+		buffer := StrReplace(buffer,"`r","")
+		buffer := StrReplace(buffer,"`n","`r`n")
+		return buffer
 	}
 }

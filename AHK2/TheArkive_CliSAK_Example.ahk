@@ -205,7 +205,7 @@ Example7(oCtl,Info) {
 	c.cliPromptCallback := "cliPromptCallback" ; default = cliPromptCallback()
 	
 	
-	c.mode .= "oeip" ; <=== implied modes: x, b
+	c.mode .= "oeipf" ; <=== implied modes: x, b
 				     ; Mode "e" uses StdErr callback.
 					 ; Mode "p" prunes the prompt from StdOut.
 					 ; Mode "i" uses callback function to capture prompt and
