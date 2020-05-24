@@ -172,7 +172,7 @@ Example7() {
 	c.cliPromptCallback := "cliPromptCallback" ; default = cliPromptCallback()
 	
 	
-	c.mode .= "oeip" ; <=== implied modes: x, b
+	c.mode .= "oeipf" ; <=== implied modes: x, b
 				     ; Mode "e" uses StdErr callback.
 					 ; Mode "p" prunes the prompt from StdOut.
 					 ; Mode "i" uses callback function to capture prompt and
@@ -309,7 +309,7 @@ AppendText(hEdit, sInput, loc="bottom") {
 ; ================================================================================
 
 #IfWinActive, ahk_class AutoHotkeyGUI
-^c::c.ctrlC()
+; ^c::c.ctrlC()
 ^CtrlBreak::c.CtrlBreak()
 ^b::c.CtrlBreak()			; in case user doesn't have BREAK key
 ^x::c.close()				; closes active CLi instance if idle
