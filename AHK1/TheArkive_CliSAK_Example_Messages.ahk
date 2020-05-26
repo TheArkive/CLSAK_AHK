@@ -5,7 +5,7 @@ Example1msg =
 (
 This example shows the most basic usage.  Default mode when not specified is "w" (wait mode).  This mode is the most logical when the command you run is expected to return in a reasonable amount of time.
 
-    c := new cli("cmd dir"), output := c.output
+    c := new cli("cmd dir"), output := c.stdout
 
 This one-liner will collect the data in the var `%output`%.  Keep in mind that the function will pause until the run process exits.  If you find the function is hanging more than expected, you might want to try mode "s" or "m".
 =============================
@@ -17,7 +17,7 @@ Example2msg =
 (
 This example uses the mode "w" as well, but will result in a slight delay due to more data being returned.
 
-    c:= new cli("cmd /C dir C:\Windows\System32"), output := c.output
+    c:= new cli("cmd /C dir C:\Windows\System32"), output := c.stdout
 
 This command is more well suited to using stream mode, especially when instant feedback is desired.  Check the next example (#3) for streaming mode.
 =============================
@@ -29,13 +29,13 @@ Example3msg =
 (
 This example uses the stdOutCallback() function.  Mode "s" for "streaming", which also monitors StdOut constantly.  Mode "o" is for using the StdOutCallback() function.  Without mode "o", the output from StdOut is stored in the object:
 
-    o.output
+    o.stdout
 
 You can retrieve data from the object like this:
 
-	myVar := o.output
+	myVar := o.stdout
 	
-... however you will not have any notification that the data has changed without mode "o".  You will have to cycle through checking it yourself.  That's why mode "o" is more useful in many cases.
+... however you will not have any notification that the data has changed without mode "o" (or mode "i" shown later).  You will have to cycle through checking it yourself.  That's why mode "o" is more useful in many cases.
 
 Any data that shows up in the buffer is immediately passed to the callback function.  Specifying an ID is optional, but if you are trying to use multiple instance of CLI commands at the same time, it's very helpful to specify an ID to separate the data streams.
 
@@ -136,19 +136,19 @@ This example demonstrates separating StdErr with mode "x":
 
     stdOut := "===========================``r``n"
             . "StdOut:``r``n"
-            . c.output "``r``n"
+            . c.stdout "``r``n"
             . "===========================``r``n"
     stdErr := "===========================``r``n"
             . "StdErr:``r``n"
-            . c.error "``r``n"
+            . c.stderr "``r``n"
             . "===========================``r``n"
     AppendText(CmdOutputHwnd,stdOut stdErr)
 	
 NOTES:
-    c.output <= this contains StdOut data
-    c.error  <= with mode "x" this contains StdErr data
+    c.stdout <= this contains StdOut data
+    c.stderr  <= with mode "x" this contains StdErr data
 
-Since mode "w" is implied, becuase no other primary modes are specified, we can check c.output and c.error immediately after the new instance of c, which runs the command and waits until command completion before continuing the script.
+Since mode "w" is implied, becuase no other primary modes are specified, we can check c.stdout and c.stderr immediately after the new instance of c, which runs the command and waits until command completion before continuing the script.
 
 This function DOES NOT use StdOut and StdErr callback functions.  If you want to use the callback functions, append "o" for StdOut and append "e" for StdErr in the modes.
 =============================
@@ -158,37 +158,16 @@ The CLI session does not remain active in thie example.
 ; ======================================================================================================
 Example7msg = 
 (
-This example shows how use custom mode to define a few properties, particularly custom callback function names.  Right now everything is set to default values.  You can change these below.  Using this method you can change properties of the object that define how the CLI environment behaves.  You could even change SOME of these on-the-fly if you want.  In particular, the callback functions, delay, cmdTimeout, and waitTimeout can be changed on the fly.  That kind of script would be a bit complex though.
+This example shows a short example of an interactive console using mode "i" with mode"s".
 =====================================================
-c := new cli("cmd","mode:cs|ID:Console") ; custom and streaming mode...
-; custom mode doesn't execute right away
 
-; these are defaults, change as desired
-c.stdOutCallback := "stdOutCallback"
-c.stdErrCallback := "stdErrCallback"
-c.cliPromptCallback := "cliPromptCallback"
+c := new cli("cmd","mode:sipf|ID:Console")
 
-other properties:
-*    delay       => Default is 10 (ms), increase this value to reduce CPU usage.
-*    cmdTimeout  => Default is 0 (ms), wait indefinitely for command to exit.
-*    waitTimeout => Default is 300 (ms), internal max wait for buffer to have data
-                    after executing a command.
-
-c.mode .= "oeip" ; <=== implied modes: x, b
-                 ; Mode "e" uses StdErr callback.
-                 ; Mode "p" prunes the prompt when detected.
-                 ; Mode "i" uses callback function to capture prompt and
-                 ; signals "command complete, ready for next command".
-
-c.runCmd()       ; run command
 =====================================================
-This sets up an interactive CLI session with custom callback function names.  You can specify the names of the callback functions.  Look for the callback functions below the Example() functions:
-=====================================================
-    stdOutCallback(data,ID) { ... }
-    stdErrCallback(data,ID) { ... }
-    cliPromptCallback(prompt,ID) { ... }
-=============================
-The CLI session will remain active in thie example.  Use the bottom edit box to issue more commands.
+This sets up an interactive CLI session with the cliPromptCallback() active using mode "i".  Mode "p" simply prunes the prompt.  Mode "f" removes control codes, so you can use plink to connect to an SSH session in this example if you like.  Just put plink.exe in the same folder as the script to keep it easy (assuming you can simply use password login).
+
+Note that cliObj.stdout is being cleared in the cliPromptCallback() function after it is printed to the GUI.  This is necessary for this example otherwise the data in cliObj.stdout would continue to accumulate.
+
 )
 ; ======================================================================================================
 ; ======================================================================================================

@@ -65,33 +65,33 @@ CmdClose() {
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example1() {
+Example1() { ; simple example
 	If (IsObject(c))
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
 	mb := new msgbox2(Example1msg,"Example #1","maxWidth:500,fontFace:Courier New")
 	
-	c := new cli("cmd /C dir"), output := c.output, c := ""
+	c := new cli("cmd /C dir"), output := c.stdout, c := ""
 	AppendText(CmdOutputHwnd,output)
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example2() {
+Example2() { ; simple example, short delay
 	If (IsObject(c))
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
 	mb := new msgbox2(Example2msg,"Example #2","maxWidth:500,fontFace:Courier New")
 	
-	c:= new cli("cmd /C dir C:\Windows\System32"), output := c.output, c := ""
+	c:= new cli("cmd /C dir C:\Windows\System32"), output := c.stdout, c := ""
 	AppendText(CmdOutputHwnd,output)
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example3() {
+Example3() { ; streaming example
 	If (IsObject(c))
 		c.close(), c:=""
 	GuiControl, , CmdOutput
@@ -103,13 +103,16 @@ Example3() {
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example4() {
+Example4() { ; batch example, pass multi-line var for batch commands
 	If (IsObject(c))
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
 	mb := new msgbox2(Example4msg,"Example #4","maxWidth:550,fontFace:Courier New")
 	
+	; in batch mode, every line must be a command you can run in cmd window
+	; you can concatenate commands with "&", "&&", "||"
+	; check help for windows batch scripting
 	batch := "cmd /Q /K ECHO. & dir C:\Windows\System32`r`n"
 		   . "ECHO. & cd..`r`n" ; ECHO. addes a new blank line
 		   . "ECHO. & dir`r`n"  ; before executing the command.
@@ -117,12 +120,12 @@ Example4() {
 		   . "ECHO. & echo --== custom commands COMPLETE ==--"
 	
 	; remove mode "p" below to see the prompt in data
-	c:= new cli(batch,"mode:bop|ID:Console")
+	c := new cli(batch,"mode:bop|ID:Console")
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example5() {
+Example5() { ; CTRL+C and CTRL+Break examples ; if you need to copy, disable CTRL+C hotkey below
 	If (IsObject(c))
 		c.close(), c:=""
 	GuiControl, , CmdOutput
@@ -134,56 +137,46 @@ Example5() {
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example6() {
+Example6() { ; stderr example
 	If (IsObject(c))
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
 	mb := new msgbox2(Example6msg,"Example #6","maxWidth:600,fontFace:Courier New")
 	
-	c := new cli("cmd /C dir poof","mode:x") ; <=== mode "w" implied
+	c := new cli("cmd /C dir poof","mode:x") ; <=== mode "w" implied, no other primary modes.
 	
+	; you can easily direct stdout / stderr to callback with modes "o" and "e"
 	stdOut := "===========================`r`n"
 			. "StdOut:`r`n"
-			. c.output "`r`n"
+			. c.stdout "`r`n"
 			. "===========================`r`n"
 	stdErr := "===========================`r`n"
 			. "StdErr:`r`n"
-			. c.error "`r`n"
+			. c.stderr "`r`n"
 			. "===========================`r`n"
 	AppendText(CmdOutputHwnd,stdOut stdErr)
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example7() {
+Example7() { ; interactive session example
 	If (IsObject(c))
 		c.close(), c:="" ; delete object and clear previous instance
 	GuiControl, , CmdOutput
 	
 	mb := new msgbox2(Example7msg,"Example #7","maxWidth:600,fontFace:Courier New")
 	
-	c := new cli("cmd","mode:cs|ID:Console") ; <-- custom mode and streaing mode
-	; custom mode doesn't run the command right away...
-	
-	; these are defaults, change as desired.
-	c.stdOutCallback := "stdOutCallback" ; default = stdOutCallback()
-	c.stdErrCallback := "stdErrCallback" ; default = stdErrCallback()
-	c.cliPromptCallback := "cliPromptCallback" ; default = cliPromptCallback()
-	
-	
-	c.mode .= "oeipf" ; <=== implied modes: x, b
-				     ; Mode "e" uses StdErr callback.
-					 ; Mode "p" prunes the prompt from StdOut.
-					 ; Mode "i" uses callback function to capture prompt and
-					 ; signals "command complete, ready for next command".
-	
-	c.runCmd()		 ; run command
+	c := new cli("cmd","mode:sipf|ID:Console")
+	; Mode "s" for streaming, but no "o" for stdout callback (not needed in this case)
+	; Mode "p" prunes the prompt from StdOut.
+	; Mode "i" uses callback function to capture prompt and signals "command complete, ready for next command".
+	; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example8() {
+Example8() { ; mode "m" example
 	If (IsObject(c))
 		c.close(), c:="" ; close previous instance first.
 	
@@ -237,7 +230,7 @@ GetLastLine(sInput="") { ; use this in stdOutCallback()
 ; ============================================================================
 ; Callback Functions
 ; ============================================================================
-stdOutCallback(data,ID) { ; stdout callback function --- default: stdOutCallback()
+stdOutCallback(data,ID,cliObj) { ; stdout callback function --- default: stdOutCallback()
 	If (ID = "Console") {
 		AppendText(CmdOutputHwnd,data)
 	} Else If (ID = "modeM") {
@@ -246,22 +239,22 @@ stdOutCallback(data,ID) { ; stdout callback function --- default: stdOutCallback
 		; use only one of these, comment out the other...
 		; ======================================================
 		GuiControl, , %CmdOutputHwnd%, %lastLine%	; use the GetLastLine() function
-		; GuiControl, , %CmdOutputHwnd%, %data%		; display all the data
 	}
 }
 
-stdErrCallback(data,ID) { ; stdErr callback function --- default: stdErrCallback()
-	If (ID = "Console") { ; type some bad commands in Example #7 to see how this works
-		msg := "`r`n=============================================`r`n"
-			 . "StdErr:`r`n" data "`r`n"
-			 . "=============================================`r`n`r`n"
+stdErrCallback(data,ID,cliObj) { ; stdErr callback function --- default: stdErrCallback()
+	If (ID = "Console") { ; works just like stdout callback
 		AppendText(CmdOutputHwnd,msg) ; handle StdErr differently
 	}
 }
 
-cliPromptCallback(prompt,ID) { ; cliPrompt callback function --- default: cliPromptCallback()
+cliPromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: cliPromptCallback()
 	Gui, Cmd:Default ; need to set GUI as default if NOT using control HWND...
 	GuiControl, , CmdPrompt, ========> new prompt =======> %prompt% ; set Text control to custom prompt
+	
+	AppendText(CmdOutputHwnd,cliObj.stdout) ; handle full output of last command as one chunk of data
+	cliObj.stdout := "" ; clear stdout since it's already been printed to the GUI window.
+						; You don't have to clear cliObj.stdout here, but in this case it makes sense to do so.
 }
 ; ============================================================================
 ; send command to CLI instance when user presses ENTER
@@ -275,7 +268,7 @@ WM_KEYDOWN(wParam, lParam, msg, hwnd) { ; wParam = keycode in decimal | 13 = Ent
 }
 
 SendCmd() { ; timer label from WM_KEYDOWN
-	Gui, Cmd:Default ; give GUI the focus / required by timer(s)
+	Gui, Cmd:Default ; give GUI the focus / required by timer(s) unless using hwnd in GuiControlGet / GuiControl commands
 	GuiControlGet, CmdInput ; get cmd
 	c.write(CmdInput) ; send cmd
 	Gui, Cmd:Default
@@ -309,7 +302,7 @@ AppendText(hEdit, sInput, loc="bottom") {
 ; ================================================================================
 
 #IfWinActive, ahk_class AutoHotkeyGUI
-; ^c::c.ctrlC()
+^c::c.ctrlC()
 ^CtrlBreak::c.CtrlBreak()
 ^b::c.CtrlBreak()			; in case user doesn't have BREAK key
 ^x::c.close()				; closes active CLi instance if idle

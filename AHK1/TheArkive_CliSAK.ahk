@@ -85,26 +85,33 @@
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;	mode:[modes]  -  Secondary Modes
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;		*** apped these modes as needed to further modify/refine CLI behavior ***
+;		*** Append these modes as needed to further modify/refine CLI behavior ***
 ;
 ;		mode "c" = Delay sCmd execution.  Execute with obj.RunCmd()  Optionally set more options by
 ;			specifying [obj.option := value]
 ;
-;		mode "x" = Extract StdErr in a separate pipe.  Stored in myObj.error by default.
+;		mode "x" = Extract StdErr in a separate pipe for each packet.  The full StdErr stream for the
+;			session is still stored in myObj.stderr.
 ;
-;		mode "e" = Use a callback function for StdErr.  If the function does not exist, then StdErr is
-;			stored in myObj.error ... note that mode "e" implies mode "x".
+;		mode "e" = Use a callback function for StdErr, each packet fires the callback function.  The full
+;			StdErr stream for the session is still stored in myObj.stderr ... note that mode "e" implies
+;			mode "x".
 ;
-;		   ** Default: stdErrCallback(data,ID)
+;			** Default callback: stdErrCallback(data,ID,CLIobj)
+;			** For a description of CLIobj, see Methods and Properties below.
 ;
-;		mode "o" = Use StdOut callback function.  By default when no callback, myObj.output contains
-;			StdOut data.
+;		mode "o" = Use StdOut callback function.  The full StdOut stream for the session is still stored
+;			in myObj.stdout
 ;
-;			Default callback: stdOutCallback(data,ID)
+;			** Default callback: stdOutCallback(data,ID,CLIobj)
+;			** For a description of CLIobj, see Methods and Properties below.
 ;
-;		mode "i" = Uses a callback function to capture the prompt from StdOut.
+;		mode "i" = Uses a callback function to capture the prompt from StdOut and fires the callback.
+;			This is useful to detect when a command is finished running.  StdOut and StdErr will continue
+;			to accumulate in CLIobj.stdout and CLIobj.stderr
 ;
-;			Default callback: CliPromptCallback(prompt,ID)
+;			** Default callback: CliPromptCallback(prompt,ID,CLIobj)
+;			** For a description of CLIobj, see Methods and Properties below.
 ;
 ;		mode "p" = Prune mode, remove prompt from StdOut data.  Mostly used with mode "i" / mode "b".
 ;
@@ -119,15 +126,15 @@
 ;
 ;	stdOutCallback:myFunc
 ;		Defines the stdOutCallback function name.
-;		> Default callback: stdOutCallback(data,ID)
+;		> Default callback: stdOutCallback(data,ID,CLIobj)
 ;
 ;	stdErrCallback:myFunc
 ;		Defines the stdErrCallback function.
-;		> Default callback: stdErrCallback(data,ID)
+;		> Default callback: stdErrCallback(data,ID,CLIobj)
 ;
 ;	cliPromptCallback:MyFunc
 ;		Defines the cliPromptCallback function.
-;		> Default callback: cliPromptCallback(prompt,ID) ... only with mode "b".
+;		> Default callback: cliPromptCallback(prompt,ID,CLIobj) ... only with mode "b".
 ;
 ;	showWindow:#
 ;		Specify 0 or 1.  Default = 0 to hide.  1 will show.
@@ -157,9 +164,10 @@
 ;		part of the executed command.  Lastly double-check the command you are trying to run for other
 ;		options that may effect how you use this class.
 ; ========================================================================================================
-; CLI class Methods and properties
+; CLI class Methods and properties (also CLIobj for callback functions).
 ; ========================================================================================================
-; If you want more fine-tuned control over the CLI class, you can use these methods:
+; 	Methods:
+; ========================================================================================================
 ;
 ;	myObj.runCmd()
 ;		Runs the command specified in sCmd parameter.  This is meant to be used with mode "c" when
@@ -184,6 +192,22 @@
 ;		application is designed according to normal specifications, then it is easy to terminate a process
 ;		by using myObj.CtrlC() or myObj.CtrlBreak(), and then if necessary finish up with myObj.close()
 ;
+; ========================================================================================================
+;	Properties (useful with CLIobj in callback functions):
+; ========================================================================================================
+;
+;	myObj.stdout
+;		This is the full output of StdOut during the session.  You can check or clear this value.
+;
+;	myObj.stderr
+;		This is the full output of StdErr during the session.  You can check or clear this value.
+;
+;	myObj.[option]
+;		All options above are also properties that can be checked or set.
+;
+;	myObj.pid
+;		Get the PID of the process or cmd window (whichever was run).
+;
 ; = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ; = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ; The following options are included as a convenience for power users.  Use with caution.
@@ -203,6 +227,10 @@
 ;	myObj.Length()
 ;		Returns the amount of data waiting to be read in bytes.
 ;
+;	myObj.KeySequence("string")
+;		Sends a key sequence, such as CTRL+Key.  Do not use this like the .write() method.  Only use this
+;		to send control signals other than CTRL+C and CTRL+Break.
+;
 ;	NOTE: Whatever values you get when using myObj.AtEOF() and myObj.Length() are only true for the exact
 ;	instant you happen to check them.  Once you read the buffer these values will change.  Furthermore,
 ;	just because you read the buffer, doesn't mean you are done reading it.  You can only read the buffer
@@ -219,7 +247,7 @@ class cli {
 		this.CliPromptCallback := "cliPromptCallback", this.delay := 10
 		this.waitTimeout := 300, this.cmdTimeout := 0, this.showWindow := 0
 		this.codepage := "CP0", this.workingDir := A_WorkingDir, this.ID := "", this.mode := "w"
-		this.output := "", this.error := "", this.cmdHistory := ""
+		this.stdout := "", this.stderr := "", this.cmdHistory := ""
 		this.hStdInRd := 0, this.hStdOutWr := 0, this.hStdOutRd := 0, this.hStdInWr := 0, this.hStdErrRd := 0
 		this.conWidth := 0, this.conHeight := 0, this.filter := false  
 		optGrp := StrSplit(options,"|") ; next load specified properties (options param)
@@ -305,7 +333,7 @@ class cli {
 			DllCall("SetHandleInformation","Ptr",hStdInRd,"Uint",1,"Uint",1)			; set flags inherit - stdIn
 			DllCall("SetHandleInformation","Ptr",hStdOutWr,"Uint",1,"Uint",1)			; set flags inherit - stdOut
 			If (InStr(mode,"x")) {
-				DllCall("CreatePipe","Ptr*",hStdErrRd:=0,"Ptr*",hStdErrWr:=0,"Uint",0,"Uint",0) ; stdErr pipe on mode "x"
+				DllCall("CreatePipe","Ptr*",hStdErrRd,"Ptr*",hStdErrWr,"Uint",0,"Uint",0) ; stdErr pipe on mode "x"
 				DllCall("SetHandleInformation","Ptr",hStdErrWr,"Uint",1,"Uint",1)
 			}
 			
@@ -344,7 +372,7 @@ class cli {
 				Else
 					NumPut(0x0, si, 64, "Int")		; wShowWindow / 0x0 = hide
 					
-				NumPut(hStdInRd , si, 80, "Ptr")	; stdIn handle
+				NumPut(hStdInRd , si, 80, "Ptr")	; stdIn read handle
 				NumPut(hStdOutWr, si, 88, "Ptr")	; stdOut handle
 				
 				If (InStr(mode,"x"))
@@ -397,17 +425,17 @@ class cli {
 					SetTimer, % stream, %delay%		; data collection timer / default delay = 10ms
 			} Else {
 				this.pid := 0, this.hProc := 0, this.hThread := 0
-				if (this.output)
-					this.output .= "`r`nINVALID COMMAND"
+				if (this.stdout)
+					this.stdout .= "`r`nINVALID COMMAND"
 				Else
-					this.output := "INVALID COMMAND"
+					this.stdout := "INVALID COMMAND"
 				this.close()
 			}
 			If (this.cmdCmd And InStr(this.cmdSwitches,"/C") And !this.cmdCmdParams) { ; check if cmd /C with no params sent
-				if (this.output)
-					this.output .= "`r`nNo command sent?"
+				if (this.stdout)
+					this.stdout .= "`r`nNo command sent?"
 				Else
-					this.output := "No command sent?"
+					this.stdout := "No command sent?"
 			}
 		} Else { ; mode "m" !! ; set buffer to width=200 / height=2 ... minimum 2 lines, or icky things happen
 			cmd := "cmd.exe " mMode " MODE CON: COLS=" conWidth " LINES=" conHeight " & " firstCmd
@@ -467,18 +495,18 @@ class cli {
 						buffer := RegExReplace(buffer,"\Q" lastLine "\E$","")
 				}
 				If (InStr(mode,"o") And IsFunc(StdOutCallback)) {
-					%StdOutCallback%(buffer,ID)				; run callback function
+					%StdOutCallback%(buffer,ID,this)				; run callback function
 				} Else
-					this.output .= buffer					; collect data in this.output
+					this.stdout .= buffer					; collect data in this.stdout
 			}
 			
 			If (InStr(mode,"x")) {							; if "x" mode, check stdErr
 				stdErr := this.fStdErrRd.read()
 				If (stdErr) {
 					If (InStr(mode,"e") And IsFunc(StdErrCallback))
-						%StdErrCallback%(stdErr,ID)
+						%StdErrCallback%(stdErr,ID,this)
 					Else
-						this.error .= stdErr
+						this.stdErr .= stdErr
 				}
 			}
 			
@@ -495,7 +523,7 @@ class cli {
 		CliPromptCallback := this.CliPromptCallback, pid := this.pid, hStdOutRd := this.hStdOutRd
 		
 		If (!InStr(mode,"m")) {
-			buffer := Trim(this.fStdOutRd.read(),"`t`r`n ")						; check buffer
+			buffer := this.fStdOutRd.read()					; check buffer
 			If (buffer) {
 				If (InStr(mode,"f"))
 					buffer := this.filterCtlCodes(buffer)
@@ -505,21 +533,21 @@ class cli {
 					buffer := this.removePrompt(buffer)
 				
 				If (InStr(mode,"o") And IsFunc(StdOutCallback))
-					%StdOutCallback%(buffer,ID)					; run callback function, or...
-				Else
-					this.output .= buffer						; collect data in this.output
+					%StdOutCallback%(buffer,ID,this)					; run callback function, or...
+				
+				this.stdout .= buffer						; collect data in this.stdout
 			}
 			If (lastLine And InStr(mode,"i") And IsFunc(CliPromptCallback))
-				%CliPromptCallback%(lastLine,ID)	; run callback when prompt is ready
+				%CliPromptCallback%(lastLine,ID,this)	; run callback when prompt is ready
 			
 			If (InStr(mode,"x")) {
 				stdErr := this.fStdErrRd.read()
 				If (stdErr) {
 					stdErr := Trim(stdErr,OmitChars:=" \t\r\n")
 					If (InStr(mode,"e") And IsFunc(StdErrCallback))
-						%StdErrCallback%(stdErr,ID)
-					Else
-						this.error .= stdErr "`r`n`r`n"
+						%StdErrCallback%(stdErr,ID,this)
+					
+					this.stderr .= stdErr "`r`n`r`n"
 				}
 			}
 			
@@ -543,7 +571,7 @@ class cli {
 						SetTimer, % stream, Off
 						this.close()
 						If (InStr(mode,"o") And IsFunc(StdOutCallback))
-							%StdOutCallback%("`r`n__Batch Finished__",ID)
+							%StdOutCallback%("`r`n__Batch Finished__",ID,this)
 					}
 				}
 			}
@@ -579,9 +607,9 @@ class cli {
 					str := this.removePrompt(str)
 				
 				If (!InStr(mode,"o"))
-					this.output := str
+					this.stdout := str
 				Else If (IsFunc(StdOutCallback))
-					%StdOutCallback%(str,ID)
+					%StdOutCallback%(str,ID,this)
 				
 				If (lastLine) {
 					If (batchCmd)
@@ -590,7 +618,7 @@ class cli {
 						SetTimer, % stream, Off
 						this.close()
 						If (InStr(mode,"o") And IsFunc(StdOutCallback))
-							%StdOutCallback%("`r`n__Batch Finished__",ID)
+							%StdOutCallback%("`r`n__Batch Finished__",ID,this)
 					}
 				}
 			} Else {
