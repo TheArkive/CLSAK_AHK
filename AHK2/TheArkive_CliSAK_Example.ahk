@@ -20,9 +20,6 @@ CmdGui() {
 	oGui.OnEvent("Close","CmdClose")
 	oGui.SetFont("s8","Courier New")
 	
-	; Gui, Cmd:New, +LabelCmd +HwndCmdHwnd +Resize, Console
-	; Gui, Font, s8, Courier New
-	
 	oGui.Add("button","","Ex #1").OnEvent("Click","Example1")
 	oGui.Add("button","x+0","Ex #2").OnEvent("Click","Example2")
 	oGui.Add("button","x+0","Ex #3").OnEvent("Click","Example3")
@@ -38,28 +35,9 @@ CmdGui() {
 	ctl := oGui.Add("Edit","vCmdOutput xm w800 h400 ReadOnly"), CmdOutputHwnd := ctl.Hwnd
 	ctl := oGui.Add("Text","vCmdPrompt w800 y+0","Prompt>"), CmdPromptHwnd := ctl.Hwnd
 	ctl := oGui.Add("Edit","vCmdInput w800 y+0 r3"), CmdInputHwnd := ctl.Hwnd
-	
-	; Gui, Add, Button, gExample1, Ex #1
-	; Gui, Add, Button, gExample2 x+0, Ex #2
-	; Gui, Add, Button, gExample3 x+0, Ex #3
-	; Gui, Add, Button, gExample4 x+0, Ex #4
-	; Gui, Add, Button, gExample5 x+0, Ex #5
-	; Gui, Add, Button, gExample6 x+0, Ex #6
-	; Gui, Add, Button, gExample7 x+0, Ex #7
-	; Gui, Add, Button, gExample8 x+0, Ex #8
-	
-	; Gui, Add, Button, gShowWindow x+20, Show Window
-	; Gui, Add, Button, gHideWindow x+0, Hide Window
-	
-	; Gui, Add, Edit, vCmdOutput +HwndCmdOutputHwnd xm w800 h400 ReadOnly
-	; Gui, Add, Text, vCmdPrompt +HwndCmdPromptHwnd w800 y+0, Prompt>
-	; Gui, Add, Edit, vCmdInput +HwndCmdInputHwnd w800 y+0 r3
-	; Gui, Show
-	
+		
 	oGui.Show()
 	oGui["CmdInput"].Focus()
-	
-	; GuiControl, Focus, CmdInput
 }
 
 ShowWindow(oCtl,Info) {
@@ -73,15 +51,12 @@ HideWindow(oCtl,Info) {
 CmdSize(o, MinMax, Width, Height) {
 	h1 := Height - 10 - 103, w1 := Width - 20
 	o["CmdOutput"].Opt("h" h1 " w" w1)
-	; GuiControl, Move, CmdOutput, h%h1% w%w1%
 	
 	y2 := Height - 75, w2 := Width - 20
 	o["CmdPrompt"].Opt("y" y2 " w" w2)
-	; GuiControl, Move, CmdPrompt, y%y2% w%w2%
 	
 	y3 := Height - 55, w3 := Width - 20
 	o["CmdInput"].Opt("y" y3 " w" w3)
-	; GuiControl, Move, CmdInput, y%y3% w%w3%
 }
 
 CmdClose(o) {
@@ -92,35 +67,33 @@ CmdClose(o) {
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example1(oCtl,Info) {
+Example1(oCtl,Info) { ; simple example
 	If (IsObject(c))
 		c.close(), c:=""
-	; GuiControl, , CmdOutput
 	oGui["CmdOutput"].Value := ""
 	
 	mb := msgbox2.New(Example1msg,"Example #1","maxWidth:500,fontFace:Courier New")
 	
-	c := cli.new("cmd /C dir"), output := c.output, c := ""
+	c := cli.new("cmd /C dir"), output := c.stdout, c := ""
 	AppendText(CmdOutputHwnd,output)
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example2(oCtl,Info) {
+Example2(oCtl,Info) { ; simple example, short delay
 	If (IsObject(c))
 		c.close(), c:=""
-	; GuiControl, , CmdOutput
 	oGui["CmdOutput"].Value := ""
 	
 	mb := msgbox2.New(Example2msg,"Example #2","maxWidth:500,fontFace:Courier New")
 	
-	c:= cli.new("cmd /C dir C:\Windows\System32"), output := c.output, c := ""
+	c:= cli.new("cmd /C dir C:\Windows\System32"), output := c.stdout, c := ""
 	AppendText(CmdOutputHwnd,output)
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example3(oCtl,Info) {
+Example3(oCtl,Info) { ; streaming example
 	If (IsObject(c))
 		c.close(), c := ""
 	oGui["CmdOutput"].Value := ""
@@ -132,14 +105,16 @@ Example3(oCtl,Info) {
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example4(oCtl,Info) {
+Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands
 	If (IsObject(c))
 		c.close(), c:=""
-	; GuiControl, , CmdOutput
 	oGui["CmdOutput"].Value := ""
 	
 	mb := msgbox2.New(Example4msg,"Example #4","maxWidth:550,fontFace:Courier New")
 	
+	; in batch mode, every line must be a command you can run in cmd window
+	; you can concatenate commands with "&", "&&", "||"
+	; check help for windows batch scripting
 	batch := "cmd /Q /K ECHO. & dir C:\Windows\System32`r`n"
 		   . "ECHO. & cd..`r`n" ; ECHO. addes a new blank line
 		   . "ECHO. & dir`r`n"  ; before executing the command.
@@ -152,10 +127,9 @@ Example4(oCtl,Info) {
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example5(oCtl,Info) {
+Example5(oCtl,Info) { ; CTRL+C and CTRL+Break examples ; if you need to copy, disable CTRL+C hotkey below
 	If (IsObject(c))
 		c.close(), c:=""
-	; GuiControl, , CmdOutput
 	oGui["CmdOutput"].Value := ""
 	
 	mb := msgbox2.New(Example5msg,"Example #5","maxWidth:800,fontFace:Courier New")
@@ -165,23 +139,23 @@ Example5(oCtl,Info) {
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example6(oCtl,Info) {
+Example6(oCtl,Info) { ; stderr example
 	If (IsObject(c))
 		c.close(), c:=""
-	; GuiControl, , CmdOutput
 	oGui["CmdOutput"].Value := ""
 	
 	mb := msgbox2.New(Example6msg,"Example #6","maxWidth:600,fontFace:Courier New")
 	
-	c := cli.new("cmd /C dir poof","mode:x") ; <=== mode "w" implied
+	c := cli.new("cmd /C dir poof","mode:x") ; <=== mode "w" implied, no other primary modes.
 	
+	; you can easily direct stdout / stderr to callback with modes "o" and "e"
 	stdOut := "===========================`r`n"
 			. "StdOut:`r`n"
-			. c.output "`r`n"
+			. c.stdout "`r`n"
 			. "===========================`r`n"
 	stdErr := "===========================`r`n"
 			. "StdErr:`r`n"
-			. c.error "`r`n"
+			. c.stderr "`r`n"
 			. "===========================`r`n"
 	AppendText(CmdOutputHwnd,stdOut stdErr)
 }
@@ -191,32 +165,20 @@ Example6(oCtl,Info) {
 Example7(oCtl,Info) {
 	If (IsObject(c))
 		c.close(), c:="" ; delete object and clear previous instance
-	; GuiControl, , CmdOutput
 	oGui["CmdOutput"].Value := ""
 	
 	mb := msgbox2.New(Example7msg,"Example #7","maxWidth:600,fontFace:Courier New")
 	
-	c := cli.new("cmd","mode:cs|ID:Console") ; <-- custom mode and streaing mode
-	; custom mode doesn't run the command right away...
-	
-	; these are defaults, change as desired.
-	c.stdOutCallback := "stdOutCallback" ; default = stdOutCallback()
-	c.stdErrCallback := "stdErrCallback" ; default = stdErrCallback()
-	c.cliPromptCallback := "cliPromptCallback" ; default = cliPromptCallback()
-	
-	
-	c.mode .= "oeipf" ; <=== implied modes: x, b
-				     ; Mode "e" uses StdErr callback.
-					 ; Mode "p" prunes the prompt from StdOut.
-					 ; Mode "i" uses callback function to capture prompt and
-					 ; signals "command complete, ready for next command".
-	
-	c.runCmd()		 ; run command
+	c := cli.new("cmd","mode:sipf|ID:Console") ; <-- custom mode and streaing mode
+	; Mode "s" for streaming, but no "o" for stdout callback (not needed in this case)
+	; Mode "p" prunes the prompt from StdOut.
+	; Mode "i" uses callback function to capture prompt and signals "command complete, ready for next command".
+	; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example8(oCtl,Info) {
+Example8(oCtl,Info) { ; mode "m" example
 	If (IsObject(c))
 		c.close(), c:="" ; close previous instance first.
 	
@@ -271,7 +233,7 @@ GetLastLine(sInput:="") { ; use this in stdOutCallback()
 ; ============================================================================
 ; Callback Functions
 ; ============================================================================
-stdOutCallback(data,ID) { ; stdout callback function --- default: stdOutCallback()
+stdOutCallback(data,ID,cliObj) { ; stdout callback function --- default: stdOutCallback()
 	If (ID = "Console") {
 		AppendText(CmdOutputHwnd,data)
 	} Else If (ID = "modeM") {
@@ -279,26 +241,22 @@ stdOutCallback(data,ID) { ; stdout callback function --- default: stdOutCallback
 		
 		; use only one of these, comment out the other...
 		; ======================================================
-		; GuiControl, , %CmdOutputHwnd%, %lastLine%	; use the GetLastLine() function
 		oGui["CmdOutput"].Value := lastLine
-		; GuiControl, , %CmdOutputHwnd%, %data%		; display all the data
 	}
 }
 
-stdErrCallback(data,ID) { ; stdErr callback function --- default: stdErrCallback()
-	If (ID = "Console") { ; type some bad commands in Example #7 to see how this works
-		msg := "`r`n=============================================`r`n"
-			 . "StdErr:`r`n" data "`r`n"
-			 . "=============================================`r`n`r`n"
+stdErrCallback(data,ID,cliObj) { ; stdErr callback function --- default: stdErrCallback()
+	If (ID = "Console") { ; works just like stdout callback
 		AppendText(CmdOutputHwnd,msg) ; handle StdErr differently
 	}
 }
 
-cliPromptCallback(prompt,ID) { ; cliPrompt callback function --- default: cliPromptCallback()
-	; Gui, Cmd:Default ; need to set GUI as default if NOT using control HWND...
-	; GuiControl, , CmdPrompt, ========> new prompt =======> %prompt% ; set Text control to custom prompt
-	
+cliPromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: cliPromptCallback()
 	oGui["CmdPrompt"].Text := "========> new prompt =======> " prompt
+	
+	AppendText(CmdOutputHwnd,cliObj.stdout) ; handle full output of last command as one chunk of data
+	cliObj.stdout := "" ; clear stdout since it's already been printed to the GUI window.
+						; You don't have to clear cliObj.stdout here, but in this case it makes sense to do so.
 }
 ; ============================================================================
 ; send command to CLI instance when user presses ENTER
@@ -311,16 +269,9 @@ WM_KEYDOWN(wParam, lParam, msg, hwnd) { ; wParam = keycode in decimal | 13 = Ent
 		SetTimer "SendCmd", -10 ; this ensures cmd is sent and control is cleared
 }
 
-SendCmd() { ; timer label from WM_KEYDOWN
-	; Gui, Cmd:Default ; give GUI the focus / required by timer(s)
-	; GuiControlGet, CmdInput ; get cmd
-	
+SendCmd() { ; timer label from WM_KEYDOWN	
 	CmdInput := oGui["CmdInput"].Value
 	c.write(CmdInput) ; send cmd
-	
-	; Gui, Cmd:Default
-	; GuiControl, , CmdInput ; clear control
-	; GuiControl, Focus, CmdInput ; put focus on control again
 	
 	oGui["CmdInput"].Value := ""
 	oGui["CmdInput"].Focus()
