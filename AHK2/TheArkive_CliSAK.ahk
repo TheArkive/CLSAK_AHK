@@ -1,4 +1,6 @@
-﻿; ================================================================
+﻿#Include TheArkive_Debug.ahk
+
+; ================================================================
 ; === cli class, easy one-time and streaming output that collects stdOut and stdErr, and allows writing to stdIn.
 ; === huge thanks to:
 ; ===	user: segalion ; https://autohotkey.com/board/topic/82732-class-command-line-interface/#entry526882
@@ -245,7 +247,7 @@ class cli {
 		this.StdOutCallback := "stdOutCallback", this.StdErrCallback := "stdErrCallback"
 		this.CliPromptCallback := "cliPromptCallback", this.delay := 10
 		this.waitTimeout := 300, this.cmdTimeout := 0, this.showWindow := 0
-		this.codepage := "CP0", this.workingDir := A_WorkingDir, this.ID := "", this.mode := "w"
+		this.codepage := "CP0", this.workingDir := A_WorkingDir, this.ID := "", this.mode := "w", mode := "w"
 		this.stdout := "", this.stderr := "", this.cmdHistory := ""
 		this.hStdInRd := 0, this.hStdOutWr := 0, this.hStdOutRd := 0, this.hStdInWr := 0, this.hStdErrRd := 0
 		this.conWidth := 0, this.conHeight := 0, this.filter := false
@@ -276,17 +278,17 @@ class cli {
 			Else If (curOpt = "ID")
 				this.ID := curOptValue ? curOptValue : ""
 			Else if (curOpt = "mode")
-				this.mode := curOptValue ? curOptValue : "w"
+				this.mode := curOptValue ? curOptValue : "w", mode := this.mode
 		}
 		
-		cmdLines := this.shellCmdLines(sCmd,firstCmd,batchCmd) ; ByRef firstCmd / ByRef batchCmd
+		cmdLines := this.shellCmdLines(sCmd,firstCmd:="",batchCmd:="") ; ByRef firstCmd / ByRef batchCmd
 		this.firstCmd := firstCmd, this.batchCmd := batchCmd, this.lastCmd := firstCmd	; firstCmd, batchCmd, lastCmd property
 		this.stream := ObjBindMethod(this,"sGet") ; register function Obj for timer (stream)
 		
 		cmdSwitchRegEx := "^cmd(?:\.exe)?[ ]?(((/A|/U|/Q|/D|/E:ON|/E:OFF|/F:ON|/F:OFF|/V:ON|/V:OFF|/S|/C|/K)?[ ]?)*)"
-		cmdSwitchResult := RegExMatch(firstCmd,"i)" cmdSwitchRegEx,cmdSwitches), cmdSwitches := Trim(cmdSwitches1)
-		cmdCmdRegEx := "^(" comspec "|cmd\.exe|cmd)"
-		cmdCmdResult := RegExMatch(firstCmd,"i)" cmdCmdRegEx,cmdCmd), cmdCmd := cmdCmd1
+		cmdSwitchResult := RegExMatch(firstCmd,"i)" cmdSwitchRegEx,cmdSwitches), cmdSwitches := Trim(IsObject(cmdSwitches) ? cmdSwitches.Value(1) : "")
+		cmdCmdRegEx := "^(" A_Comspec "|cmd\.exe|cmd)"
+		cmdCmdResult := RegExMatch(firstCmd,"i)" cmdCmdRegEx,cmdCmd), cmdCmd := IsObject(cmdcmd) ? cmdCmd.Value(1) : ""
 		cmdCmdParams := Trim(StrReplace(StrReplace(firstCmd,cmdCmd,""),cmdSwitches,""))
 		this.cmdSwitches := cmdSwitches, this.cmdCmd := cmdCmd, this.cmdCmdParams := cmdCmdParams
 		
@@ -323,9 +325,10 @@ class cli {
 		}
 		
 		firstCmd := this.firstCmd, mode := this.mode, stream := this.stream, delay := this.delay
-		sDir := this.workingDir, sDirA := (sDir=A_WorkingDir Or !sDir) ? 0 : &sDir, cmdSwitches := this.cmdSwitches
+		sDir := this.workingDir, sDirA := (sDir=A_WorkingDir Or !sDir) ? 0 : StrPtr(sDir), cmdSwitches := this.cmdSwitches
 		StdErrCallback := this.StdErrCallback, showWindow := this.showWindow, cmdCmd := this.cmdCmd
 		
+        hStdInRd:=0, hStdInWr:=0, hStdOutRd:=0, hStdOutWr:=0, hStdErrRd:=0, hStdErrWr:=0
 		If (!InStr(mode,"m")) { ; NOT mode "m"
 			DllCall("CreatePipe","Ptr*",hStdInRd:=0,"Ptr*",hStdInWr:=0,"Uint",0,"Uint",0) ; get handle - stdIn (R/W)
 			DllCall("CreatePipe","Ptr*",hStdOutRd:=0,"Ptr*",hStdOutWr:=0,"Uint",0,"Uint",0) ; get handle - stdOut (R/W)
@@ -403,7 +406,7 @@ class cli {
 			
 			if (r) {
 				pid := NumGet(pi, A_PtrSize*2, "uint")
-				hProc := NumGet(pi,0), hThread := NumGet(pi,A_PtrSize)
+				hProc := NumGet(pi,"Ptr"), hThread := NumGet(pi,A_PtrSize,"Ptr")
 				this.pid := pid, this.hProc := hProc, this.hThread := hThread
 				If (InStr(mode,"m")) {
 					atch := DllCall("AttachConsole","UInt",pid)
@@ -524,7 +527,7 @@ class cli {
 	sGet() { ; stream-Get (timer) - collects until process exits AND buffer is empty
 		ID := this.ID, mode := this.mode, batchCmd := this.batchCmd, stream := this.stream ; stream (timer)
 		StdOutCallback := this.StdOutCallback, StdErrCallback := this.StdErrCallback
-		CliPromptCallback := this.CliPromptCallback, pid := this.pid, hStdOutRd := this.hStdOutRd
+		CliPromptCallback := this.CliPromptCallback, pid := this.pid, hStdOutRd := this.hStdOutRd, lastLine := ""
 		
 		If (!InStr(mode,"m")) {
 			buffer := this.fStdOutRd.read()						; check buffer
@@ -637,7 +640,7 @@ class cli {
 			Return
 		
 		mode := this.mode, ID := this.ID, delay := this.delay, stream := this.stream, pid := this.pid
-		cmdLines := this.shellCmdLines(sInput,firstCmd,batchCmd) ; ByRef firstCmd / ByRef batchCmd
+		cmdLines := this.shellCmdLines(sInput,firstCmd:="",batchCmd:="") ; ByRef firstCmd / ByRef batchCmd
 		this.batchCmd := batchCmd, this.lastCmd := firstCmd, this.cmdHistory .= firstCmd "`r`n"
 		
 		androidRegEx := "^((.*[ ])?adb (-a |-d |-e |-s [a-zA-Z0-9]*|-t [0-9]+|-H |-P |-L [a-z0-9:_]*)?[ ]?shell)$"
@@ -646,7 +649,7 @@ class cli {
 		
 		If (InStr(mode,"m")) {
 			DetectHiddenWindows 1
-			ControlSend "", sInput "`r`n", "ahk_pid " pid		; this might not work so well
+			ControlSend sInput "`r`n",, "ahk_pid " pid		; this might not work so well
 			DetectHiddenWindows 0
 		}
 		Else
@@ -722,7 +725,7 @@ class cli {
 	}
 	kill() {	; not as important now that ctrlBreak() works, but still handy
 		pid := this.pid
-		Run comspec " /C TASKKILL /F /T /PID " pid,,"hide"
+		Run A_Comspec " /C TASKKILL /F /T /PID " pid,,"hide"
 		this.close()
 	}
 	shellLastLine(str) { ; catching windows prompt, or "end of data" string
@@ -755,11 +758,12 @@ class cli {
 		return result
 	}
 	removePrompt(str) {
+        lastLine := this.shellLastLine(str)
 		str := RegExReplace(str,"(\r\n|\r|\n)?\Q" lastLine "\E$","")
-		oneMore := this.shellLastLine(str)
-		While (oneMore) {
+		
+		While (oneMore := this.shellLastLine(str)) {
 			str := RegExReplace(str,"(\r\n|\r|\n)?\Q" oneMore "\E$","")
-			oneMore := this.shellLastLine(str)
+			; oneMore := this.shellLastLine(str)
 		}
 		return str
 	}

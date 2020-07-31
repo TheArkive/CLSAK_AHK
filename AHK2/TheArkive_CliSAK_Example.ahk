@@ -1,5 +1,5 @@
 ﻿; #Warn  ; Enable warnings to assist with detecting common errors.
-SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
+SendMode "Input"  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 
 ; #INCLUDE %A_ScriptDir%
@@ -11,12 +11,12 @@ SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 Global oGui, ScriptPID
 ScriptPID := ProcessExist()
 
-Global c, CmdOutputHwnd, CmdPromptHwnd, CmdInputHwnd, CmdOutput, CmdPrompt, CmdInput
+Global c:="", CmdOutputHwnd, CmdPromptHwnd, CmdInputHwnd, CmdOutput, CmdPrompt, CmdInput
 
 CmdGui()
 
 CmdGui() {
-	oGui := GuiCreate("+Resize","Console")
+	oGui := Gui.New("+Resize","Console")
 	oGui.OnEvent("Close","CmdClose")
 	oGui.SetFont("s8","Courier New")
 	
@@ -87,7 +87,7 @@ Example2(oCtl,Info) { ; simple example, short delay
 	
 	mb := msgbox2.New(Example2msg,"Example #2","maxWidth:500,fontFace:Courier New")
 	
-	c:= cli.new("cmd /C dir C:\Windows\System32"), output := c.stdout, c := ""
+	c := cli.new("cmd /C dir C:\Windows\System32"), output := c.stdout, c := ""
 	AppendText(CmdOutputHwnd,output)
 }
 ; ============================================================================
@@ -220,7 +220,7 @@ Example8(oCtl,Info) { ; mode "m" example
 }
 
 GetLastLine(sInput:="") { ; use this in stdOutCallback()
-	sInput := Trim(sInput,OmitChars:=" `r`n"), i := 0
+	sInput := Trim(sInput,OmitChars:=" `r`n"), i := 0, lastLine := ""
 	Loop Parse sInput, "`r", "`n"
 		i++
 	Loop Parse sInput, "`r", "`n"
@@ -247,7 +247,7 @@ stdOutCallback(data,ID,cliObj) { ; stdout callback function --- default: stdOutC
 
 stdErrCallback(data,ID,cliObj) { ; stdErr callback function --- default: stdErrCallback()
 	If (ID = "Console") { ; works just like stdout callback
-		AppendText(CmdOutputHwnd,msg) ; handle StdErr differently
+		AppendText(CmdOutputHwnd,data) ; handle StdErr differently
 	}
 }
 
@@ -295,14 +295,14 @@ AppendText(hEdit, sInput, loc:="bottom") {
 		SendMessage 0x00B1, txtLen, txtLen,, "ahk_id " hEdit	;EM_SETSEL
 	Else If (loc = "top")
 		SendMessage 0x00B1, 0, 0,, "ahk_id " hEdit
-    SendMessage 0x00C2, False, &sInput,, "ahk_id " hEdit		;EM_REPLACESEL
+    SendMessage 0x00C2, False, StrPtr(sInput),, "ahk_id " hEdit		;EM_REPLACESEL
 }
 
 ; ================================================================================
 ; hotkeys
 ; ================================================================================
 
-#If WinActive("ahk_class AutoHotkeyGUI")
+#HotIf WinActive("ahk_class AutoHotkeyGUI")
 ^c::c.ctrlC()
 ^CtrlBreak::c.CtrlBreak()
 ^b::c.CtrlBreak()			; in case user doesn't have BREAK key
