@@ -180,15 +180,15 @@
 ;       Codepage (UTF-8 = CP65001 / Windows Console = CP437 / etc...)
 ;
 ;   stdOutCallback:Give_It_A_Name
-;       Defines the stdOutCallback function name.
+;       Defines the stdOutCallback function name.  Enabled with mode "o".
 ;       > Default callback: stdOutCallback(data,ID,CLIobj)
 ;
 ;   stdErrCallback:Give_It_A_Name
-;       Defines the stdErrCallback function.
+;       Defines the stdErrCallback function.  Enabled with modes "x" and "e".
 ;       > Default callback: stdErrCallback(data,ID,CLIobj)
 ;
 ;   PromptCallback:Give_It_A_Name
-;       Defines the PromptCallback function.
+;       Defines the PromptCallback function.  Enabled with mode "p".
 ;       > Default callback: PromptCallback(prompt,ID,CLIobj)
 ;
 ;   QuitCallback:Give_It_A_Name
