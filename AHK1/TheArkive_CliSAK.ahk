@@ -326,10 +326,10 @@ CliData(inCommand:="") {
     If (!inCommand)
         return ""
     Else {
-        cli_session := new cli(inCommand,options) ; run command
-        result := (cli_session.stdout) ? cli_session.stdout : "" ; get the data
-        cli_session.close(), cli_session := "" ; clean up
-        return result ; return result
+        cli_session := new cli(inCommand)                           ; run command
+        result := (cli_session.stdout) ? cli_session.stdout : ""    ; get the data
+        cli_session.close(), cli_session := ""                      ; clean up
+        return result                                               ; return result
     }
 }
 
@@ -340,7 +340,7 @@ class cli {
     ID:="", mode:="w", hStdIn:=0, hStdOut:=0, hStdErr:=0, stdout:="", stdoutRaw:="", stderr:="", cmdHistory:="", conWidth:=0, conHeight:=0
     batchCmd:="", firstCmd:="", lastCmd:="", cmdCmd:="", cmdSwitches:="", cmdProg:="", useAltShell := "", reason:=""
     
-    __New(sCmd, options="") {
+    __New(sCmd, options:="") {
         this.sCmd := sCmd, q := Chr(34), optGrp := StrSplit(options,"|")   ; next load specified properties (options param)
         For i, curItem in optGrp                        ; write options to "this"
             optItem := StrSplit(curItem,":"), this[optItem[1]] := optItem[2]
@@ -350,7 +350,7 @@ class cli {
         this.stream := ObjBindMethod(this,"sGet") ; register function Obj for timer (stream)
         
         cmdSwitchRegEx := "^(cmd|cmd\.exe)[ ]*((/A|/U|/Q|/D|/E:ON|/E:OFF|/F:ON|/F:OFF|/V:ON|/V:OFF|/S|/C|/K| )*)(.*)"
-        cmdSwitchResult := RegExMatch(firstCmd,"iO)" cmdSwitchRegEx,cmdElements), cmdSwitches := Trim(cmdSwitches1)
+        cmdSwitchResult := RegExMatch(firstCmd,"iO)" cmdSwitchRegEx,cmdElements)
         
         If (IsObject(cmdElements)) {
             cmdCmd := Trim(cmdElements.Value(1)), cmdSwitches := Trim(cmdElements.Value(2)), cmdProg := Trim(cmdElements.Value(4))
@@ -528,7 +528,7 @@ class cli {
         DllCall("CloseHandle","Ptr",this.hStdIn), DllCall("CloseHandle","Ptr",this.hStdOut)     ; close stdIn/stdOut handle
         DllCall("CloseHandle","Ptr",this.hProc),  DllCall("CloseHandle","Ptr",this.hThread)     ; close process/thread handle
         
-        If (InStr(mode,"x"))
+        If (InStr(this.mode,"x"))
             this.fStdErr.Close(), DllCall("CloseHandle","Ptr",this.hStdErr)     ; close stdErr handles
         
         InStr(this.mode,"m") ? this.ProcessClose(this.pID) : ""                 ; close process if mode "m"
@@ -672,7 +672,7 @@ class cli {
     uWrite(sInput:="") { ; INTERNAL, don't use - this prevents .write() from triggering itself
         sInput := Trim(sInput,OmitChars:="`r`n")
         If (sInput != "") {
-            If (InStr(mode,"m")) {
+            If (InStr(this.mode,"m")) {
                 this.consoleSend(sInput)
             } Else
                 f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(sInput "`r`n"), f.close(), f := "" ; send cmd
@@ -711,17 +711,18 @@ class cli {
         this.KeySequence("^c")
     }
     KeySequence(sInput) {
-        stream := this.stream ; detach console first, or script may exit.
-        DllCall("FreeConsole")
-        SetTimer, % stream, Off
-        
-        pid := this.pid
         curSet := A_DetectHiddenWindows
         DetectHiddenWindows, On
-        ControlSend, , %sInput%, ahk_pid %pid%
+        If (WinExist("ahk_pid " this.pid)) {
+            stream := this.stream ; detach console first, or script may exit.
+            DllCall("FreeConsole")
+            SetTimer, % stream, Off
+            
+            ControlSend, , %sInput%, % "ahk_pid " this.pid
+            
+            result := this.ReattachConsole()
+        }
         DetectHiddenWindows, %curSet%
-        
-        result := this.ReattachConsole()
     }
     ReattachConsole() {
         delay := this.delay, stream := this.stream

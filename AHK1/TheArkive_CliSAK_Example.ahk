@@ -200,7 +200,7 @@ Example8() { ; mode "m" example
 	; The file downloaded in this example is the Windows Android SDK (the small version).
 	; Home Page:   https://developer.android.com/studio/releases/platform-tools
 	;
-	; In this wget.exe example, you can isolate the animated progress bar and incorporate the
+	; In this wget.exe example, you can isolate the incrementing percent and incorporate the
     ; text animation as part of your GUI.  See the obj.GetLastLine() method which makes it easy
     ; to isolate the progress bar.  Use the StdOut callback function to put the progress bar
     ; or incrementing percent in a text box, status bar, title bar, etc.
@@ -230,7 +230,7 @@ Example8() { ; mode "m" example
          . "ping 127.0.0.1`r`n"
          . "ping 127.0.0.1`r`n"
          . "echo " done ; "done" is set as global above
-	options := "mode:m(100,20)orp|ID:modeM|showWindow:1|QuitString:" done ; console size = 100 columns / 5 rows
+	options := "mode:m(100,20)orp|ID:modeM|QuitString:" done ; console size = 100 columns / 5 rows
 	
 	c := new cli(cmd,options)
 }
@@ -256,7 +256,7 @@ StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
              . "========================================================`r`n"
              . data "`r`n`r`n"
              . "========================================================`r`n"
-             . "wget.exe example:  (Check Ex #7 comments)`r`n"
+             . "wget.exe example:  (Check Ex #8 comments)`r`n"
              . "========================================================`r`n"
              . "Percent Complete: " p2
         
