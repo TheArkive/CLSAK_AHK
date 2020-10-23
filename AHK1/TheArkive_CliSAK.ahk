@@ -376,8 +376,8 @@ class cli {
     }
     validateCmd() {
         IsInvalid := false, m := this.mode, s := this.cmdSwitches
-        If (this.cmdCmd = "") ; doesn't start with COMSPEC
-            IsInvalid := true, this.reason:="Command doesn't start with CMD(.EXE)"
+        ;If (this.cmdCmd = "") ; doesn't start with COMSPEC
+        ;    IsInvalid := true, this.reason:="Command doesn't start with CMD(.EXE)"
         If InStr(m,"w") And (InStr(s,"/K")) ; wait mode + /K
             IsInvalid := true, this.reason:="/K with WAIT mode (W)"
         If (InStr(m,"m") Or InStr(m,"s")) And InStr(s,"/C") ; stream mode + /C
