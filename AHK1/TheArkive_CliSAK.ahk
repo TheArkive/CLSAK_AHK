@@ -1,4 +1,5 @@
-﻿; ================================================================
+﻿; AHK v1
+; ================================================================
 ; === cli class, easy one-time and streaming output that collects stdOut and stdErr, and allows writing to stdIn.
 ; === huge thanks to:
 ; ===    user: segalion ; https://autohotkey.com/board/topic/82732-class-command-line-interface/#entry526882
