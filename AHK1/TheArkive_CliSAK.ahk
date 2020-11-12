@@ -1,5 +1,4 @@
-﻿; AHK v1
-; ================================================================
+﻿; ================================================================
 ; === cli class, easy one-time and streaming output that collects stdOut and stdErr, and allows writing to stdIn.
 ; === huge thanks to:
 ; ===    user: segalion ; https://autohotkey.com/board/topic/82732-class-command-line-interface/#entry526882
@@ -377,8 +376,8 @@ class cli {
     }
     validateCmd() {
         IsInvalid := false, m := this.mode, s := this.cmdSwitches
-        ;If (this.cmdCmd = "") ; doesn't start with COMSPEC
-        ;    IsInvalid := true, this.reason:="Command doesn't start with CMD(.EXE)"
+        ; If (this.cmdCmd = "") ; doesn't start with COMSPEC
+            ; IsInvalid := true, this.reason:="Command doesn't start with CMD(.EXE)"
         If InStr(m,"w") And (InStr(s,"/K")) ; wait mode + /K
             IsInvalid := true, this.reason:="/K with WAIT mode (W)"
         If (InStr(m,"m") Or InStr(m,"s")) And InStr(s,"/C") ; stream mode + /C
@@ -605,8 +604,8 @@ class cli {
                     return
                 }
                 
-                (prompt) ? (buffer .= "`r`n`r`n") : (buffer := "`r`n" buffer)
-                (prompt And !InStr(mode,"r")) ? (buffer .= prompt) : "" ; re-insert prompt if no mode "r" is used
+                buffer .= "`r`n"
+                (prompt And !InStr(mode,"r")) ? (buffer .= prompt "`r`n`r`n") : (buffer .= "`r`n`r`n") ; re-insert prompt if no mode "r" is used
             
                 If (InStr(mode,"o") And IsFunc(StdOutCallback) And Trim(buffer," `r`n"))
                     %StdOutCallback%((m ? Trim(buffer," `r`n") : buffer),ID,this) ; trigger StdOut callback
