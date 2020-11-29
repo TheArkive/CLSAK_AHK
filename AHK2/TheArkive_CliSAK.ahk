@@ -32,41 +32,43 @@
 ; CliData(inCommand)
 ; ========================================================================================================
 ;
-;   Usage:   var := CliData("cmd /C you_command here")
+;   Usage:   var := CliData("your_command here")
 ;
 ;       Using this library, this function is the easiest way to "just run a command and collect the data".
-;       Generally this should always be launched with "cmd /C".
 ;
 ; ========================================================================================================
-;   new cli(sCmd, options="")
+;   new cli(sCmd:="", options:="", env:="cmd", params:="/Q")
 ; ========================================================================================================
-;     Parameters:
+;   Parameters:
 ;
 ;       sCmd        (required)
 ;
-;           Single-line command or multi-line batch command, depending on mode: specified in options.
-;           If you are using WAIT mode ("w"), then this must be a single line.  Multiple commands can be
-;           concatenated with "&" or "&&" or "||".
-;
-;           This class will ensure your command conforms to the following criteria below:
-;
-;             Your command should be formatted as follows:
-;
-;               1) CMD /C your_command(s)     (default Primary mode, "w")
-;                   your_command = Must be single line.  Commands can be concatenated with &, &&, or ||.
-;
-;               2) CMD /K your_command(s)     (streaming Primary modes, "s" or "m")
-;                   your_command = Can be single or multi-line.  This can be like a batch file, except
-;                                  certain batch environment conventions won't work.  Don't think of this
-;                                  or treat this as a true batch environment.  You can launch an
-;                                  interactive session and dynamically manipulate the commands run as well
-;                                  as the parameters passed to the CLI session using streaming modes.
-;
-;                                  If your command doesn't conform to this an error will be thrown.
+;           Single-line command or multi-line batch command.  Different modes will provide different
+;           functionality.  See "Options" below.
 ;
 ;       options    (optional)
+;           Zero or more of the options below, separated by a pipe (|):
 ;
-;           Zero or more of the following strings, pipe (|) delimited:
+;       env
+;           Specify the environment.  The default environment is "cmd".  Other possibilities include:
+;           > "powershell"
+;           > "ansicon" --> Use your own CLi shell, like ANSICON.
+;
+;           This can be any EXE that loads a command line environment that allows redirecting StdIn,
+;           StdOut, and/or StdErr.  The PATH environment var will be checked to find the full path to the
+;           EXE.  If the environment you want to use is not in PATH, then specify the full path in this
+;           parameter.
+;
+;       params
+;           The default param is /Q to set ECHO OFF.  This prevents your commands from displaying in the
+;           CLI session.  However, CliObj.lastCmd contains your last command so you can reconstruct a
+;           normal-looking CLI session if you desire.
+;
+;           Other Examples:
+;           > "/K" -- for env:="cmd", this will omit the shell version text when the CLi session starts,
+;             thus only displaying the prompt.
+;
+;           Check the help docs for your CLI shell to know what the options are and how to use them.
 ; ========================================================================================================
 ; Options
 ; ========================================================================================================
@@ -78,121 +80,88 @@
 ;
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;   Modes define how the CLI instance is launched and handled.
-;
-;   mode:[modes]  -  Primary Modes
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;        
-;        There are 2 main categories of modes:
-;           1) Wait mode (mode "w")   Command format:   cmd /C your_command
-;              - Simply run the command, collect data, and exit.
-;
-;           2) Stream mode (modes "s" = stream, "m" = monitor)
-;              - Much more flexibility.  Among other things, the stream modes allow callback functions for
-;                StdOut, StdErr, prompt events, and a user-defined QuitString (just to name a few).
-;
+;       This library now operates in only streaming mode.  Use CliData() wrapper function for single
+;       command output.
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;        IMPORTANT NOTES ABOUT STREAMING MODES:
-;           - When using stream modes, the user MUST call obj.Close() to terminate the open handles after
-;             properly exiting the program.  "Properly exiting the program" means the CLI session is still
-;             active, but idle.  If you don't properly exit the program you may see the following processes
-;             remaining in Task Manager:
+;       IMPORTANT NOTES ABOUT THIS LIBRARY:
+;           Except when using the CliData() wrapper function, the user MUST call obj.Close() to
+;           terminate the CLI session and open handles after properly exiting the programs called during
+;           the CLI session.  "Properly exiting the program" means the CLI session is still active, but
+;           idle.  If you don't properly exit the program you may see the following processes remaining
+;           in Task Manager:
 ;                1) cmd.exe
 ;                2) the program you ran on the command line
-;                3) conhost.exe
-;
-;           - Using streaming mode REQUIRES the user to be familiar with how to propertly close, interrupt,
-;             and terminate the program.  Improperly using/closing/interrupting/terminating the CLI program 
-;             will likely result in the user needing to forcefully exit the program manually.
+;                3) conhost.exe (you will see more than usual - I usually see 3 of these on my system)
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;   mode:[modes]  -  Primary Modes
 ;
-;        *** Specify ONLY ONE of the following primary modes ***
-;        *** If you specify more than one of these primary modes you will get an error ***
+;       The default mode is streaming (previously mode "s"), which generally means constant data
+;       collection from StdOut.  There is no need to specify mode "s" as this is now the default mode.
 ;
-;        mode "w" = Wait mode, run command, collect data, and exit (default mode).
-;            If no modes are specified then "w" is assumed.  Note that the function that runs using this
-;            mode will hang if the process hangs, or if the process is returning a lot of data.
-;            >>> For best results, always use:   cmd /C your_command
+;       mode "m" (Monitoring mode) This allows the user to record text as actually seen on a typical
+;           console.  Best if used with the StdOutCallback() and PromptCallback() functions.  Useful
+;           for capturing animations like incrementing percent, or a progress bar... ie. [90%]{======> }
 ;
-;        mode "s" = Streaming mode, continual collection until exit.  The user MUST call obj.Close() AFTER
-;           properly terminating the program to cleanup the open handles.
-;           >>> For best results, always use:   cmd /K your_command_or_batch   (#NotATrueBatchEnvironment)
-;
-;        mode "m" = Monitoring mode, this launches a hidden CLI window and records text as you would 
-;           actually see it from the console.  Usually used with the StdOut callback function.  Useful for
-;           capturing animations like incrementing percent, or a progress bar... ie.  [90%]{======> }
-;
-;           These kinds of animations are not sent to StdOut, only to the console, hence mode "m".
+;           A typical console buffer consists of approx 80-120 COLS (columns) and several thousand rows.
+;           So mode "m" comes with the ability to resize the console buffer to use considerably less CPU
+;           when reading the console buffer.  Currently only CMD has been tested with this, but
+;           development is planned for PowerShell.
 ;
 ;               Usage: m(width, height)
 ;               - width : number of columns (of characters)
-;               - height: number of rows
+;               - height: number of rows of text
 ;
-;                   Note: A smaller area captured performs better than capturing a larger area.  Be sure
-;                   to use at least 2 rows.  A single row will usually be generally unusable.
+;               Note: A smaller area captured performs better than capturing a larger area.  Be sure
+;               to use at least 2 rows.  A single row will usually be generally unusable.  If you do not
+;               specify height/width when using mode "m", then 100 COLS and 10 LINES are used.
 ;
-;           Your initial command will be modified to resize the console if you specify m(w,h).
-;           For Example:
-;               cmd [SWITCHES] MODE CON: COLS=[width] LINES=[height] & your_first_command
+;           The size of the console buffer is important to take into account.  The buffer size can affect
+;           the display of the output you are trying to capture.  If you notice "graphical anomalies"
+;           then try a wider buffer size.
 ;
+;           You can call mode "x" with mode "m", but there are a few instances when this is not beneficial.
+;           Some commands may hang if StdErr is not piped to the console buffer.  In general, if you have
+;           seemingly random or unexplained issues using mode "x" with mode "m", stop using mode "x" and
+;           see if the issues continue.
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;    mode:[modes]  -  Secondary Modes
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;        *** Append these modes as needed to further modify/refine CLI behavior ***
+;       *** Append these modes as needed to further modify/refine CLI behavior ***
 ;
-;        mode "c" = Delay sCmd execution.  Execute with obj.RunCmd()  Optionally set more options by
-;            specifying:    CLIobj.option := value
+;       mode "c" = Delay sCmd execution.  Execute with obj.RunCmd()  Optionally set more options before
+;            execution by specifying:    CLIobj.option := value
 ;
-;        mode "x" = Extract StdErr in a separate pipe for each packet.  The full StdErr stream for the
-;           session is still stored in CLIobj.stderr.
+;       mode "x" = Extract StdErr in a separate pipe for each command.  The full StdErr stream for the
+;           session is still stored in CLIobj.stderr.  This is best used with PromptCallback(). Generally,
+;           you should clear .stdout and .stderr after processing in PromptCallback() to keep the
+;           correlation between the command, stdout, and stderr clear.
 ;
-;        mode "e" = Use StdErr callback function.  Each StdErr packet sent fires the callback function.
-;            StdErr stream for the session is still stored in CLIobj.stderr
-;            Note that mode "e" implies mode "x".
+;       mode "r" = Prune mode, remove prompt from StdOut data.  This only functions as expected when the
+;           prompt is the final line of output.  So, in mode "m", the final prompt will be omitted, but
+;           pervious prompts will be displayed.
 ;
-;            ** Default callback: stdErrCallback(data,ID,CLIobj)
-;            ** For a description of CLIobj, see Methods and Properties below.
-;
-;        mode "o" = Use StdOut callback function.
-;            The full StdOut stream for the session is still stored in CLIobj.stdout
-;
-;            ** Default callback: stdOutCallback(data,ID,CLIobj)
-;            ** For a description of CLIobj, see Methods and Properties below.
-;
-;        mode "p" = Uses a callback function to capture the prompt from StdOut and fires the callback.
-;            This is useful to detect when a command is finished running.
-;
-;            ** Default callback: PromptCallback(prompt,ID,CLIobj)
-;            ** For a description of CLIobj, see Methods and Properties below.
-;
-;        mode "r" = Prune mode, remove prompt from StdOut data.
-;
-;        mode "f" = Filter control codes.  This mostly pertains to an SSH session, or older ADB sessions.
-;
+;       mode "f" = Filter control codes.  This mostly pertains to Linux environments such as SSH or ADB.
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;    More Options
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;
 ;   workingDir:c:\myDir
-;       Set working directory.  Defaults to %A_ScriptDir%.  Commands that generate files will put those
+;       Set working directory.  Defaults to A_ScriptDir.  Commands that generate files will put those
 ;       files here, unless otherwise specified in the command parameters.
 ;
 ;   codepage:CP###
 ;       Codepage (UTF-8 = CP65001 / Windows Console = CP437 / etc...)
 ;
-;   stdOutCallback:Give_It_A_Name
-;       Defines the stdOutCallback function name.  Enabled with mode "o".
-;       > Default callback: stdOutCallback(data,ID,CLIobj)
-;
-;   stdErrCallback:Give_It_A_Name
-;       Defines the stdErrCallback function.  Enabled with modes "x" and "e".
-;       > Default callback: stdErrCallback(data,ID,CLIobj)
+;   StdOutCallback:Give_It_A_Name
+;       Defines the stdOutCallback function name.  If the callback exists, it will fire on this event.
+;       > Default callback: StdOutCallback(data,ID,CLIobj)
 ;
 ;   PromptCallback:Give_It_A_Name
-;       Defines the PromptCallback function.  Enabled with mode "p".
+;       Defines the PromptCallback function.  If the callback exists, it will fire on this event.
 ;       > Default callback: PromptCallback(prompt,ID,CLIobj)
 ;
 ;   QuitCallback:Give_It_A_Name
-;       Defines the QuitCallback function.
+;       Defines the QuitCallback function.  If the callback exists, it will fire on this event.
 ;       > Default callback: QuitCallback(quitString,ID,CLIobj)
 ;       > The QuitString option must be set in order to use the QuitCallback.
 ;
@@ -206,7 +175,7 @@
 ;
 ;   showWindow:#
 ;       Specify 0 or 1.  Default = 0 to hide.  1 will show.
-;       Normally the CLI window will always be blank, except i mode "m".  The CLI window exists so that
+;       Normally the CLI window will always be blank, except in mode "m".  The CLI window exists so that
 ;       control signals (CTRL+C / CTRL+Break / etc.) can be sent to the window.  See the Methods section
 ;       below.  Ultimately this is only provided as a convenience but isn't all that useful.
 ;
@@ -217,47 +186,32 @@
 ;       have data after executing a command.  If your command takes longer than 300ms to return data, then
 ;       you may need to increase this value for proper functionality.
 ;
-;   cmdTimeout:0   (ms)
-;       By default, cmtTimeout is set to 0, to wait for the command to complete indefinitely.  This mostly
-;       only applies to mode "w".  If you use this class under normal circumstances, you shouldn't need to
-;       modify this value.
+;   width:#
+;       Sets the number of columns for the console to use.  Only works with mode "m".
 ;
-;       This is provided as a convenience, but is generally not recommended for use.  Try using streaming
-;       modes ("s" or "m"), or use methods .CtrlC() or .CtrlBreak() (see below) before using this value.
-;       If your command is taking a while to return it may be because of the following reasons:
+;   height:#
+;       Sets the number of rows for the console to use.  Only works with mode "m".
 ;
-;           1) The command is returning more data than anticipated.  Use streaming mode, or wait.
-;           2) You might have misused the command.
-;           3) Your CLI session might actually be interactive.
+;   NOTE: Height and Width can also be set with mode "m" --> "mode:m(h,w)".  See above.
 ;
 ; ========================================================================================================
 ; CLI class Methods and properties (also CLIobj parameter for callback functions).
 ; ========================================================================================================
-;     Methods:
+;   Methods:
 ; ========================================================================================================
 ;
-;    CLIobj.runCmd()
+;   CLIobj.runCmd()
 ;       Runs the command specified in sCmd parameter.  This is meant to be used with mode "c" when
 ;       delayed execution is desired.
 ;
-;    CLIobj.close()
+;   CLIobj.close()
 ;       Closes all open handles and tries to end the session.  Ending sessions like this usually only
 ;       succeeds when the CLI prompt is idle.  If you need to force termination then send a CTRL+C or
 ;       CTRL+Break signal first.  Read more below.
 ;
-;    CLIobj.CtrlC()
-;       Sends a CTRL+C signal to the console.  Usually this cancels whatever command is running, but it
-;       depends on the command.
-;
-;    CLIobj.CtrlBreak()
-;       Sends a CTRL+Break signal to the console.  Usually this will cancel whatever command is running,
-;       but it depends on the command.
-;
-;    CLIobj.kill()
-;       Attempts to run TASKKILL on the process launched by sCmd.  This is only provided as a convenience.
-;       Don't use this if you can avoid it.  If this CLI class is properly used, and if your application
-;       makes proper use of the CLI, then it is easy to terminate a process by using CLIobj.CtrlC() or
-;       CLIobj.CtrlBreak(), and then if necessary finish up with CLIobj.close()
+;   CLIobj.KeySequence("string")
+;       Sends a key sequence, ie. CTRL+Key.  DO NOT use this like the .write() method because this method
+;       is not accurate.  Only use this to send control signals like CTRL+C / CTRL+Break.
 ;
 ;   CLIobj.GetLastLine(str)
 ;       Returns last line of "str".  This is useful in callback functions.
@@ -266,28 +220,39 @@
 ;    Properties (useful with CLIobj in callback functions):
 ; ========================================================================================================
 ;
-;    CLIobj.stdout
-;        This is the full output of StdOut during the session.  You can check or clear this value.
+;   CLIobj.[option]
+;       All options above are also properties that can be checked or set.
 ;
-;    CLIobj.stderr
-;        This is the full output of StdErr during the session.  You can check or clear this value.
-;
-;    CLIobj.[option]
-;        All options above are also properties that can be checked or set.
-;
-;    CLIobj.pID, CLIobj.tID
-;        Get the process/thread ID of the CLI session.
+;   CLIobj.cmdHistory
+;       This is a text list (delimited by `r`n) of commands executed so far during your CLI session. The
+;       last command in the list is the same as the lastCmd property.
 ;
 ;   CLIobj.hProc, CLIobj.hThread
 ;       Get the handle to the process/thread of the CLI session.
 ;
 ;   CLIobj.lastCmd
-;       This is the last command that was run during your CLI session.  Usually this command is the one
-;       that is currently being executed.
+;       This is the last command that was run during your CLI session.  When using the PromptCallback(),
+;       the .stdout and .stderr properties contain output data as a result of the last command run.
 ;
-;   CLIobj.cmdHistory
-;       This is a text list (delimited by `r`n) of commands executed so far during your CLI session. The
-;       last command in the list is the same as the lastCmd property.
+;   CLIobj.pID, CLIobj.tID
+;       Get the process/thread ID of the CLI session.
+;
+;   Cliobj.ready
+;       This is set to FALSE until after the first prompt event has happened, then it is set to TRUE.
+;       This is most useful for filtering out the first prmopt event when using the prompt callback
+;       function.
+;
+;   Cliobj.batchProgress
+;       Contains the iteration count of completed commands.
+;
+;   Cliobj.batchCommands
+;       Contains the total number of commands (lines) passed into the .write() method.
+;
+;   CLIobj.stderr
+;       This is the full output of StdErr during the session.  You can check or clear this value.
+;
+;   CLIobj.stdout
+;       This is the full output of StdOut during the session.  You can check or clear this value.
 ;
 ; = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ; = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -296,228 +261,188 @@
 ; = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ; = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 ;
-;    CLIobj.write(sInput)
-;        Write to StdIn and send commands.  CRLF is appended automatically.
+;   CLIobj.write(sInput)
+;       Write to StdIn and send commands.  CRLF (`r`n) is appended automatically.  This method will
+;       automatically use the appropriate command whether in normal streaming mode, or mode "m".
 ;
-;    CLIobj.read(n:=0)
-;        Read N bytes from the buffer.  Default is to read all bytes if n is not specified.
+;   CLIobj.fStdOut - file object (stream) - contains all methods and properties of an AHK File Object.
+;       Note this member is NOT a file object when using mode "m" (it is only a handle).
 ;
-;    CLIobj.AtEOF()   (EOF = end of file)
-;        Returns 0 if there is data waiting to be read in the buffer, otherwise 1 if the buffer is empty.
+;   CLIobj.fStdErr - same as CLIobj.fStdOut, but for StdErr (only when using mode "x").
 ;
-;    CLIobj.Length()
-;        Returns the number of bytes in the buffer waiting to be read.
-;
-;    CLIobj.KeySequence("string")
-;        Sends a key sequence, ie. CTRL+Key.  DO NOT use this like the .write() method.  Only use this
-;        to send control signals other than CTRL+C and CTRL+Break to the CLI session.
-;
-;    NOTE: Whatever values you get when using CLIobj.AtEOF() and CLIobj.Length() are only true for the exact
-;    instant you happen to check them.  Once you read the buffer these values will change.  Furthermore,
-;    just because you read the buffer, doesn't mean you are done reading it.  You can only read the buffer
-;    approximately 4,096 bytes at a time.  Also, just because there doesn't happen to be data in the buffer
-;    now doesn't mean there won't be 10 ms later.
-;            
 ; ========================================================================================================
-; I know this class is a bit of a monster.  Please check the example script for practical appliations.
+; KNOWN ISSUES
+; ========================================================================================================
+;   * When typing an incomplete command in PowerShell (ie.  >> echo "test  <<) you will get a ">>" prompt
+;     with the option to complete the command.  In a normal PowerShell window, you can complete the above
+;     command by typing double quotes (") and get back to the prompt.
+;
+;       It should also be possible to press CTRL+C to abort the incomplete command.  This is also not
+;     happening when trying to use CliObj.KeySequence("^c").
+;
+;     Both of these issues currently apply to PowerShell, or PowerShell through CMD (ie. "cmd /K
+;     powershell").  I'm still trying to figure out what causes this.  Other than these issues, Powershell
+;     still appears to function properly when commands don't spawn a ">>" prompt.
 ; ========================================================================================================
 
 CliData(inCommand:="") {
     If (!inCommand)
         return ""
     Else {
-        cli_session := cli.New(inCommand)                           ; run command
-        result := (cli_session.stdout) ? cli_session.stdout : ""    ; get the data
-        cli_session.close(), cli_session := ""                      ; clean up
-        return result                                               ; return result
+        cli_session := cli.New(inCommand,"mode:r","cmd","/K /Q")  ; run command, prune prompt
+        result := ""
+        
+        While !cli_session.batchProgress
+            Sleep cli_session.delay
+        
+        result := cli_session.stdout                ; get the data
+        cli_session.close(), cli_session := ""      ; clean up
+        return Trim(result,"`r`n`t")                ; return result
     }
 }
 
 class cli {
-    StdOutCallback:="stdOutCallback", StdErrCallback:="stdErrCallback"
-    PromptCallback:="PromptCallback", QuitCallback:="QuitCallback", QuitString:=""
-    delay:=10, waitTimeout:=300, cmdTimeout:=0, showWindow:=0, codepage:="CP0", workingDir:=A_WorkingDir, shell:="windows"
-    ID:="", mode:="w", hStdIn:=0, hStdOut:=0, hStdErr:=0, stdout:="", stdoutRaw:="", stderr:="", cmdHistory:="", conWidth:=0, conHeight:=0
-    batchCmd:="", firstCmd:="", lastCmd:="", cmdCmd:="", cmdSwitches:="", cmdProg:="", useAltShell := "", reason:="", fStdErr:={AtEOF:0}, fStdOut:={AtEOF:0}
+    Static CtlKeyState := {CAPSLOCK:0x80, ENHANCED_KEY:0x100, LALT:0x2, LCTRL:0x8, NUMLOCK:0x20, RALT:0x1, RCTRL:0x4, SCROLLLOCK:0x40, SHIFT:0x10}
     
-    __New(sCmd, options:="") {
-        this.sCmd := sCmd, q := Chr(34), optGrp := StrSplit(options,"|")   ; next load specified properties (options param)
-        For i, curItem in optGrp                        ; write options to "this"
-            optItem := StrSplit(curItem,":"), this.%optItem[1]% := optItem[2]
+    StdOutCallback:="stdOutCallback", PromptCallback:="PromptCallback", QuitCallback:="QuitCallback", QuitString:=""
+    delay:=10, waitTimeout:=300, showWindow:=0, codepage:="CP0", workingDir:=A_WorkingDir, shell:="windows", ready:=false, run:=false
+    ID:="", mode:="", hStdIn:=0, hStdOut:=0, hStdErr:=0, stdout:="", stdoutRaw:="", stderr:="", cmdHistory:="", conWidth:=100, conHeight:=10
+    lastCmd:="", cmdCmd:="", cmdSwitches:="", cmdProg:="", useAltShell := "", reason:="", command:=""
+    batchCmdLines:=0, batchProgress:=0, batchCmd:="", terminateBatch := false
+    fStdErr:={AtEOF:1, Handle:0}, fStdOut:={AtEOF:1, Handle:0}
+    
+    __New(sCmd, options:="", env:="cmd", params:="/Q") {
+        this.env := (!FileExist(env)) ? this.check_exe(env) : env
+        this.params := params
         
-        cmdLines := this.shellCmdLines(sCmd,firstCmd,batchCmd) ; ByRef firstCmd / ByRef batchCmd
-        this.firstCmd := firstCmd, this.batchCmd := batchCmd, this.lastCmd := firstCmd    ; firstCmd, batchCmd, lastCmd property
+        this.batchCmdLines := this.shellCmdLines(sCmd,firstCmd,batchCmd)        ; ByRef firstCmd / ByRef batchCmd ; isolate 1st line command
+        this.sCmd := sCmd, q := Chr(34), optGrp := StrSplit(options,"|")        ; next load specified properties (options param)
+        For i, curItem in optGrp
+            optItem := StrSplit(curItem,":"), this.%optItem[1]% := optItem[2]   ; write options to "this"
+        
+        this.batchCmd := sCmd
         this.stream := ObjBindMethod(this,"sGet") ; register function Obj for timer (stream)
-        
-        cmdSwitchRegEx := "^(cmd|cmd\.exe)[ ]*((/A|/U|/Q|/D|/E:ON|/E:OFF|/F:ON|/F:OFF|/V:ON|/V:OFF|/S|/C|/K| )*)(.*)"
-        cmdSwitchResult := RegExMatch(firstCmd,"i)" cmdSwitchRegEx,cmdElements)
-        
-        If (IsObject(cmdElements)) {
-            cmdCmd := Trim(cmdElements.Value(1)), cmdSwitches := Trim(cmdElements.Value(2)), cmdProg := Trim(cmdElements.Value(4))
-            this.cmdSwitches := cmdSwitches, this.cmdCmd := cmdCmd, this.cmdProg := cmdProg
-        }
-        
-        IsInvalid := this.validateCmd()
-        If (IsInvalid) {
-            msg := "INVALID MODE/SWITCH COMBINATION OR NO COMSPEC USED`r`n`r`n"
-                 . "1) Your CLI session should always start with " q "CMD" q ".`r`n`r`n"
-                 . "2) If you just want to simply collect data, you must use:`r`n`tcmd /C your_command`r`n`r`n"
-                 . "3) If you want to run a batch or create an interactive CLI session, use:`r`n`tcmd /K your_command`r`n`r`n"
-                 . "When running a batch or interactive session, you will always need to manually terminate the CLI session using obj.Close()`r`n`r`n"
-                 . "Using other switches on CMD is fine as long as you understand the effect it has on the CLI session.`r`n`r`n"
-                 . "Command:`r`n`r`n" sCmd "`r`n`r`n"
-                 . "Reason: " this.reason
-            MsgBox msg
-            return
-        }
         
         If (!InStr(this.mode,"c"))
             this.runCmd()
     }
-    validateCmd() {
-        IsInvalid := false, m := this.mode, s := this.cmdSwitches
-        ; If (this.cmdCmd = "") ; doesn't start with COMSPEC
-            ; IsInvalid := true, this.reason:="Command doesn't start with CMD(.EXE)"
-        If InStr(m,"w") And (InStr(s,"/K")) ; wait mode + /K
-            IsInvalid := true, this.reason:="/K with WAIT mode (W)"
-        If (InStr(m,"m") Or InStr(m,"s")) And InStr(s,"/C") ; stream mode + /C
-            IsInvalid := true, this.reason:="/C with STREAMING mode (S or M)"
-        
-        return IsInvalid
+    check_exe(sInput) {
+        sInput := (!RegExMatch(sInput,"\.exe$")) ? sInput ".exe" : sInput
+        path := EnvGet("PATH")
+        Loop Parse path, ";"
+            If FileExist(A_LoopField "\" sInput)
+                return RegExReplace(A_LoopFIeld "\" sInput,"[\\]{2,}","\")
+        return ""
     }
     __Delete() {
         this.close() ; close all handles / objects
     }
     runCmd() {
-        p := A_PtrSize
-        mode := this.mode, modeList := "wsbm", modeCount := 0, m := !InStr(mode,"m") ? 0 : 1 ; check for mode "m"
-        Loop Parse modeList
-            modeCount += InStr(mode,A_LoopField)?1:0
+        p := A_PtrSize, this.run := true, this.m := !!InStr(this.mode,"m")
         
-        If (modeCount > 1) { ; check for mode conflicts
-            MsgBox "Conflicting modes detected.  Check documentation to properly set modes."
-            return
-        } Else If (modeCount = 0)
-            mode .= "w", this.mode := mode            ; imply "w" with no primary modes selected
-        If (InStr(mode,"e") And !InStr(mode,"x"))     ; imply "x" with "e"
-            mode .= "x", this.mode := mode
-        If (InStr(mode,"(") And InStr(mode,")") And m) { ; mode "m" !!
-            s1 := InStr(mode,"("), e1 := InStr(mode,")"), mParam := SubStr(mode,s1+1,e1-s1-1), dParam := StrSplit(mParam,",")
+        If (InStr(this.mode,"(") And InStr(this.mode,")") And this.m) { ; mode "m" !!
+            s1 := InStr(this.mode,"("), e1 := InStr(this.mode,")"), mParam := SubStr(this.mode,s1+1,e1-s1-1), dParam := StrSplit(mParam,",")
             conWidth := dParam[1], conHeight := dParam[2], this.conWidth := conWidth, this.conHeight := conHeight
-            this.firstCmd := A_Comspec " " this.cmdSwitches " MODE CON: COLS=" conWidth " LINES=" conHeight " & " this.cmdProg
-        } Else If (m)
-            this.conWidth := 100, this.conHeight := 10
-        
-        enc := !StrLen(Chr(0xFFFF))?"UTF-8":"UTF-16"
-        batchCmd := this.batchCmd, mode := this.mode, delay := this.delay
-        
-        bFirstCmd := BufferAlloc(bSize := StrPut(this.firstCmd,enc),0)
-        StrPut(this.firstCmd, bFirstCmd, enc)
-        
-        bWorkingDir := BufferAlloc(bSize := StrPut(this.workingDir,enc),0)
-        StrPut(this.workingDir, bWorkingDir, enc)
-        
-        cmdSwitches := this.cmdSwitches
-        StdErrCallback := this.StdErrCallback, showWindow := this.showWindow, cmdCmd := this.cmdCmd
-        
-        If (!m) {
-            r1 := DllCall("CreatePipe","Ptr*",hStdInRd:=0,"Ptr*",hStdInWr:=0,"Uint",0,"Uint",0) ; get handle - stdIn (R/W)
-            r2 := DllCall("SetHandleInformation","Ptr",hStdInRd,"Uint",1,"Uint",1)            ; set flags inherit - stdIn
-            
-            r1 := DllCall("CreatePipe","Ptr*",hStdOutRd:=0,"Ptr*",hStdOutWr:=0,"Uint",0,"Uint",0) ; get handle - stdOut (R/W)
-            r2 := DllCall("SetHandleInformation","Ptr",hStdOutWr,"Uint",1,"Uint",1)            ; set flags inherit - stdOut
-            
-            If (InStr(mode,"x")) {
-                r1 := DllCall("CreatePipe","Ptr*",hStdErrRd:=0,"Ptr*",hStdErrWr:=0,"Uint",0,"Uint",0) ; stdErr pipe on mode "x"
-                r2 := DllCall("SetHandleInformation","Ptr",hStdErrWr,"Uint",1,"Uint",1)
-            }
-            
-            this.hStdIn := hStdInWr, this.hStdOut := hStdOutRd, this.hStdErr := InStr(mode,"x") ? hStdErrRd : hStdOutRd
         }
         
-        pi := BufferAlloc((p=4)?16:24, 0)          ; PROCESS_INFORMATION structure
-        
-        si := BufferAlloc(siSize:=(p=4)?68:104,0)   ; STARTUPINFO Structure
-        NumPut("UInt", siSize, si, 0)               ; cb > structure size
-        NumPut("UInt", (!m ? 0x100 : 0x0) | 0x1, si, (p=4)?44:60) ; dwFlags = 0x100 STARTF_USESTDHANDLES || 0x1 = check wShowWindow member below
-        NumPut("UShort", showWindow ? 0x1 : 0x0, si, (p=4)?48:64) ; wShowWindow / 0x1 = show
-        
-        If (!m) {
-            NumPut("Ptr", hStdInRd , si, (p=4)?56:80)    ; stdIn handle
-            NumPut("Ptr", hStdOutWr, si, (p=4)?60:88)    ; stdOut handle
-            NumPut("Ptr", InStr(mode,"x") ? hStdErrWr : hStdOutWr, si, (p=4)?64:96)    ; stdErr handle (only on mode "x", otherwise use stdout handle)
+        If (this.m) {
+            params_addon := " /K MODE CON: COLS=" this.conWidth " LINES=" this.conHeight
+            (this.params) ? this.params .= params_addon : this.params := Trim(params_addon)
         }
+        ; implement this for PowerShell
+        ; powershell -noexit -command "[console]::WindowWidth=100; [console]::WindowHeight=50; [console]::BufferWidth=[console]::WindowWidth"
+        
+        hStdInRd := 0, hStdInWr := 0, hStdOutRd := 0, hStdOutWr := 0, hStdErrRd := 0, hStdErrWr := 0 ; init handles
+        
+        r1 := DllCall("CreatePipe","Ptr*",hStdInRd,"Ptr*",hStdInWr,"Uint",0,"Uint",0) ; get handle - stdIn (R/W)
+        r2 := DllCall("SetHandleInformation","Ptr",hStdInRd,"Uint",1,"Uint",1)            ; set flags inherit - stdIn
+        this.hStdIn := hStdInWr, this.hStdOut := 0
+        
+        If (!this.m) {
+            r1 := DllCall("CreatePipe","Ptr*",hStdOutRd,"Ptr*",hStdOutWr,"Uint",0,"Uint",0) ; get handle - stdOut (R/W)
+            r2 := DllCall("SetHandleInformation","Ptr",hStdOutWr,"Uint",1,"Uint",1)            ; set flags inherit - stdOut ;ZZZ
+            this.hStdOut := hStdOutRd
+        }
+        
+        If (InStr(this.mode,"x")) {
+            r1 := DllCall("CreatePipe","Ptr*",hStdErrRd,"Ptr*",hStdErrWr,"Uint",0,"Uint",0) ; stdErr pipe on mode "x"
+            r2 := DllCall("SetHandleInformation","Ptr",hStdErrWr,"Uint",1,"Uint",1)
+        }
+        this.hStdErr := InStr(this.mode,"x") ? hStdErrRd : hStdOutRd
+        
+        pi := BufferAlloc((p=4)?16:24, 0)                               ; PROCESS_INFORMATION structure
+        si := BufferAlloc(siSize:=(p=4)?68:104,0)                       ; STARTUPINFO Structure
+        NumPut("UInt", siSize, si, 0)                                   ; cb > structure size
+        NumPut("UInt", 0x100|0x1, si, (p=4)?44:60)                      ; STARTF_USESTDHANDLES (0x100) | STARTF_USESHOWWINDOW (0x1)
+        NumPut("UShort", this.showWindow ? 0x1 : 0x0, si, (p=4)?48:64)  ; wShowWindow / 0x1 = show
+        
+        NumPut("Ptr", hStdInRd , si, (p=4)?56:80)                       ; stdIn handle
+        (!this.m) ? NumPut("Ptr", hStdOutWr, si, (p=4)?60:88) : ""      ; stdOut handle
+        NumPut("Ptr", InStr(this.mode,"x") ? hStdErrWr : hStdOutWr, si, (p=4)?64:96)    ; stdErr handle (only on mode "x", otherwise use stdout handle)
         
         s := "i)^((.*)?adb(.exe)?([ ].*)?[ ]shell)$"
-        If (r := RegExMatch(this.cmdProg,s))
+        If (r := RegExMatch(this.env,s))
             this.shell := "android"
         
         r := DllCall("CreateProcess"
-            , "Uint", 0                    ; application name
-            , "Ptr", bFirstCmd.ptr         ; command line str
-            , "Uint", 0                    ; process attributes
-            , "Uint", 0                    ; thread attributes
-            , "Int", (!m) ? true : false   ; inherit handles - true if STARTF_USESTDHANDLES (0x100) used in SI struct
-            , "Uint", 0x10                 ; CMD is a console, no need for 0x10 (CREATE_NEW_CONSOLE), but doesn't hurt anything
-            , "Uint", 0                    ; environment
-            , "Ptr", bWorkingDir.ptr       ; working Directory pointer
-            , "Ptr", si.ptr                ; startup info structure - contains stdIn/Out handles
-            , "Ptr", pi.ptr)               ; process info sttructure - contains proc/thread handles/IDs
+            , "Str", this.env, "Str", this.params
+            , "Uint", 0, "Uint", 0          ; process/thread attributes
+            , "Int", true                   ; always inherit handles to keep StdIn secure
+            , "Uint", 0x10                  ; 0x10 (CREATE_NEW_CONSOLE), 0x200 (CREATE_NEW_PROCESS_GROUP)
+            , "Uint", 0                     ; environment
+            , "Str", this.workingDir        ; working Directory pointer
+            , "Ptr", si.ptr                 ; startup info structure - contains stdIn/Out handles
+            , "Ptr", pi.ptr)                ; process info sttructure - contains proc/thread handles/IDs
         
         if (r) {
-            pID := NumGet(pi, A_PtrSize * 2, "UInt"), tID := NumGet(pi, A_PtrSize * 2+4, "UInt")  ; get Process ID and Thread ID
-            hProc := NumGet(pi,0,"UPtr"), hThread := NumGet(pi,A_PtrSize,"UPtr")                ; get Process handle and Thread handle
-            this.pID := pID, this.tID := tID, this.hProc := hProc, this.hThread := hThread      ; save ID's and handles to "this"
+            this.pID := NumGet(pi, p * 2, "UInt"), this.tID := NumGet(pi, p * 2+4, "UInt")    ; get Process ID and Thread ID
+            this.hProc := NumGet(pi,0,"UPtr"), this.hThread := NumGet(pi,p,"UPtr")            ; get Process handle and Thread handle
             
-            while (result := !DllCall("AttachConsole", "UInt", pID) And ProcessExist(this.pID))    ; retry attach console until success
+            while (result := !DllCall("AttachConsole", "UInt", this.pID) And ProcessExist(this.pID))    ; retry attach console until success
                 Sleep 10                                                                               ; if PID exists - cmd may have returned already
             
-            If (InStr(mode,"m")) {                                                              ; mode "m" special cases...
-                hStdIn  := DllCall("GetStdHandle", "Int", -10, "ptr"), this.hStdIn := hStdIn    ; get StdIn to send input
-                hStdOut := DllCall("GetStdHandle", "Int", -11, "ptr"), this.hStdOut := hStdOut  ; get StdOut of the Console (not the process)
-            } Else {
-                r1 := DllCall("CloseHandle","Ptr",hStdOutWr), r2 := DllCall("CloseHandle","Ptr",hStdInRd) ; handles not needed, inherited by the process
+            r1 := DllCall("CloseHandle","Ptr",hStdInRd) ; handles not needed, inherited by the process
+            If (!this.m) {
+                r2 := DllCall("CloseHandle","Ptr",hStdOutWr)
                 this.fStdOut := FileOpen(this.hStdOut, "h", this.codepage)  ; open StdOut stream object
-            }
+            } Else
+                hStdOut := DllCall("GetStdHandle", "Int", -11, "ptr"), this.hStdOut := hStdOut
             
-            If (InStr(mode,"x") And !m) { ; not going to mess with StdErr from console (mode m) yet, it's easier from the process
+            If (InStr(this.mode,"x")) {
                 DllCall("CloseHandle","Ptr",hStdErrWr)
                 this.fStdErr := FileOpen(this.hStdErr, "h", this.codepage)
             }
             
-            If (this.shell = "android" And !m) ; specific CLI shell fixes
+            If (this.shell = "android" And !this.m) ; specific CLI shell fixes
                 this.uWrite(this.checkShell())
             
-            stream := this.stream, this.wait() ; wait for buffer to have data, default = 300 ms
-            If (InStr(mode,"w"))
-                this.wGet()                    ; (wGet) wait mode
-            Else If (InStr(mode,"s") Or m)
-                SetTimer stream, delay         ; data collection timer / default loop delay = 10 ms
+            stream := this.stream, delay := this.delay, this.wait() ; wait for buffer to have data, default = 300 ms
+            
+            SetTimer stream, delay         ; data collection timer / default loop delay = 10 ms
         } Else {
             this.pid := 0, this.tid := 0, this.hProc := 0, this.hThread := 0
             this.stdout .= (this.stdout) ? "`r`nINVALID COMMAND" : "INVALID COMMAND"
             this.close()
             MsgBox "Last Error: " A_LastError
         }
-        If (this.cmdCmd And InStr(this.cmdSwitches,"/C") And !this.cmdProg) ; check if cmd /C with no params sent
-            this.stdout .= (this.stdout) ? "`r`nNo command sent?" : "No command sent?"
     }
     close() { ; closes handles and may/may not kill process instance
         stream := this.stream
-        SetTimer stream, 0          ; disable streaming timer
+        SetTimer stream, 0                  ; disable streaming timer
         
-        this.CtrlBreak()            ; send CTRL+Break to interrupt process if busy
-        DllCall("FreeConsole")      ; detach console from script
-        If !InStr(this.mode,"m")
-            this.fStdOut.Close()    ; close fileObj stdout handle
+        (ProcessClose(this.pID)) ? this.write("exit") : "" ; send "exit" if process still exists
+        
+        If (!this.m And this.fStdOut.Handle)
+            this.fStdOut.Close()            ; close fileObj stdout handle
         
         DllCall("CloseHandle","Ptr",this.hStdIn), DllCall("CloseHandle","Ptr",this.hStdOut)     ; close stdIn/stdOut handle
         DllCall("CloseHandle","Ptr",this.hProc),  DllCall("CloseHandle","Ptr",this.hThread)     ; close process/thread handle
         
-        If (InStr(this.mode,"x"))
+        If (InStr(this.mode,"x") And this.fStdErr.Handle)
             this.fStdErr.Close(), DllCall("CloseHandle","Ptr",this.hStdErr)     ; close stdErr handles
         
-        InStr(this.mode,"m") ? ProcessClose(this.pID) : ""                 ; close process if mode "m"
+        DllCall("FreeConsole")                  ; detach console from script
+        (this.m) ? ProcessClose(this.pID) : ""  ; close process if mode "m"
     }
     wait() {
         mode := this.mode, delay := this.delay, waitTimeout := this.waitTimeout, ticks := A_TickCount
@@ -528,87 +453,9 @@ class cli {
                 Break
         }
     }
-    wGet() { ; wait-Get - pauses script until process exists AND buffer is empty
-        ID := this.ID, delay := this.delay, mode := this.mode, cmdTimeout := this.cmdTimeout, ticks := A_TickCount
-        StdOutCallback := this.StdOutCallback, StdErrCallback := this.StdErrCallback
-        
-        Loop {
-            Sleep delay                                       ; reduce CPU usage (default delay = 10ms)
-            buffer := Trim(this.fStdOut.read()," `r`n")       ; check buffer
-            If (buffer) {
-                If (InStr(mode,"r")) ; remove prompt
-                    (lastLine := this.getPrompt(buffer,true)) ? buffer := RegExReplace(buffer,"\Q" lastLine "\E$","") : ""
-                InStr(mode,"o") And IsFunc(StdOutCallback) ? %StdOutCallback%(buffer,ID,this) : this.stdout .= buffer ; StdOut Callback
-            }
-            
-            If (InStr(mode,"x")) {  ; check stdErr
-                stdErr := Trim(this.fStdErr.read()," `r`n")
-                If (stdErr)
-                    (InStr(mode,"e") And IsFunc(StdErrCallback)) ? %StdErrCallback%(stdErr,ID,this) : this.stdErr .= stdErr ; StdErr callback
-            }
-            
-            If (!ProcessExist(this.pID) And this.fStdOut.AtEOF) ; process exits AND buffer is empty
-                Break
-            Else If (this.fStdOut.AtEOF And A_TickCount - ticks >= cmdTimeout) And (cmdTimeout > 0) ; check timeout if enabled
-                Break
-        }
-        this.close()
-    }
-    sGet() { ; stream-Get (timer) - collects until process exits AND buffer is empty
-        ID := this.ID, mode := this.mode, m := InStr(mode,"m") ? 1 : 0, batchCmd := Trim(this.batchCmd," `r`n`t"), prompt := ""
-        StdOutCallback := this.StdOutCallback, StdErrCallback := this.StdErrCallback, stream := this.stream ; stream (timer)
-        PromptCallback := this.PromptCallback, QuitCallback := this.QuitCallback
-        pid := this.pid, hStdOut := this.hStdOut, mData := 0
-        
-        buffer := (!m) ? this.read() : this.mGet() ; check StdOut buffer
-        
-        If (InStr(mode,"x")) { ; StdErr in separate stream
-            stdErr := this.fStdErr.read()
-            If (stdErr) {
-                (InStr(mode,"e") And IsFunc(StdErrCallback)) ? %StdErrCallback%(stdErr,ID,this) : "" ; StdErr callback
-                this.stderr .= stdErr "`r`n`r`n"
-            }
-        }
-        
-        fullEOF := (!m) ? this.fStdOut.AtEOF : 1 ; check EOF, in mode "m" this is always 1 (because StdOut is grid, not a stream)
-        if (InStr(mode,"x"))
-            (this.fStdOut.AtEOF And this.fStdErr.AtEOF) ? fullEOF := true : fullEOF := false
-        
-        If (buffer) { ; buffer data automatically Trim()'s CRLF for better control
-            buffer := Trim(buffer," `r`n")
-            If (!m) Or (m And this.stdoutRaw != buffer) { ; normal collection - when there's a buffer
-                prompt := "", this.stdoutRaw := buffer
-                InStr(mode,"f") ? (buffer := this.filterCtlCodes(buffer)) : "" ; remove control codes (SSH, older ADB)
-                
-                prompt := this.getPrompt(buffer,true), buffer := this.removePrompt(buffer,prompt) ; isolate prompt from buffer
-                
-                If (this.QuitString And RegExMatch(buffer,"\Q" this.QuitString "\E$") And IsFunc(QuitCallback)) {
-                    this.stdout .= buffer
-                    %QuitCallback%(this.QuitString,ID,this)
-                    SetTimer stream, 0
-                    this.close()
-                    return
-                }
-                
-                buffer .= "`r`n"
-                (prompt And !InStr(mode,"r")) ? (buffer .= prompt "`r`n`r`n") : (buffer .= "`r`n`r`n") ; re-insert prompt if no mode "r" is used
-            
-                If (InStr(mode,"o") And IsFunc(StdOutCallback) And Trim(buffer," `r`n"))
-                    %StdOutCallback%((m ? Trim(buffer," `r`n") : buffer),ID,this) ; trigger StdOut callback
-                this.stdout .= buffer                                             ; collect data in this.stdout
-                
-                (prompt And InStr(mode,"p") And IsFunc(PromptCallback)) ? %PromptCallback%(prompt,ID,this) : "" ; prompt displayed event callback
-                
-                If (prompt And fullEOF And batchCmd)            ; process should be idle when prompt appears
-                    batchCmd ? this.write(batchCmd) : ""        ; write next command in batch, if any
-            } 
-        }
-        
-        If (!ProcessExist(this.pID) And fullEOF)   ; if process exits AND buffer is empty
-            SetTimer stream, 0                     ; stop data collection timer
-    }
     mGet() { ; capture console grid output (from console buffer - not StdOut stream from the process)
-        otherStr := ""
+        Static enc := StrLen(Chr(0xFFFF)) ? "UTF-16" : "UTF-8"
+        otherStr := "", curPos := 1
         If (exist := ProcessExist(this.pID)) {
             lpCharacter := BufferAlloc(this.conWidth * this.conHeight * 2,0)  ; console buffer size to collect
             dwBufferCoord := BufferAlloc(4,0)                                 ; top-left start point for collection
@@ -619,26 +466,90 @@ class cli {
                              ,"UInt",this.conWidth * this.conHeight ; define console dimensions
                              ,"uint",NumGet(dwBufferCoord,"UInt") ; start point >> 0,0
                              ,"UInt*",lpNumberOfCharsRead:=0,"Int")
+            chunk := StrGet(lpCharacter,enc)
             
-            enc := StrLen(Chr(0xFFFF)) ? "UTF-16" : "UTF-8"
-            chunk := StrGet(lpCharacter,enc) ; , otherStr := ""
-            
-            curPos := 1
             While (curLine := SubStr(chunk,curPos,this.conWidth))
-                otherStr .= Trim(curLine) "`r`n", curPos += this.conWidth
-            otherStr := Trim(otherStr,"`r`n")
+                otherStr .= RTrim(curLine) "`r`n", curPos += this.conWidth
         }
         
-        return otherStr
+        return Trim(otherStr,"`r`n")
+    }
+    sGet() { ; stream-Get (timer) - collects until process exits AND buffer is empty
+        batchCmd := Trim(this.batchCmd," `r`n`t"), prompt := "", stream := this.stream
+        SOcb := this.StdOutCallback, QuitCallback := this.QuitCallback
+        
+        buffer := (!this.m) ? this.fStdOut.read() : this.mGet() ; check StdOut buffer
+        this.getStdErr()                                        ; check StdErr buffer
+        
+        fullEOF := (!this.m) ? this.fStdOut.AtEOF : 1 ; check EOF, in mode "m" this is always 1 (because StdOut is grid, not a stream)
+        if (InStr(this.mode,"x"))
+            (this.fStdOut.AtEOF And this.fStdErr.AtEOF) ? fullEOF := true : fullEOF := false
+        
+        If (buffer) {
+            If (!this.m) Or (this.m And this.stdoutRaw != buffer) { ; normal collection - when there's a buffer
+                this.stdoutRaw := buffer, buffer := this.clean_lines(buffer)                                ; RTrim() spaces from buffer with .clean_lines()
+                InStr(this.mode,"f") ? (buffer := this.filterCtlCodes(buffer)) : ""                         ; remove control codes (SSH, older ADB)
+                prompt := this.getPrompt(buffer,true), buffer := this.removePrompt(buffer,prompt)           ; isolate prompt from buffer
+                buffer := RegExReplace(buffer,"^\Q" this.lastCmd "\E","")
+                
+                If (this.QuitString And RegExMatch(Trim(buffer,"`r`n`t"),"\Q" this.QuitString "\E$") And IsFunc(QuitCallback)) {
+                    %QuitCallback%(this.QuitString,this.ID,this) ; check for QuitString before prompt is added
+                    this.close()
+                    return
+                }
+                
+                (!this.m) ? this.stdout .= "`r`n" buffer : this.stdout := buffer ; write/append buffer to .stdout
+                
+                (IsFunc(SOcb)) ? %SOcb%(buffer,this.ID,this) : ""  ; trigger StdOut callback
+                (prompt) ? this.promptEvent(prompt) : ""           ; trigger prompt casllback
+            } 
+        }
+        
+        If (!ProcessExist(this.pID) And fullEOF) {  ; if process exits AND buffer is empty
+            this.batchProgress += 1
+            SetTimer stream, 0                      ; stop data collection timer
+        }
+    }
+    clean_lines(sInput) {
+        result := ""
+        Loop Parse sInput, "`n", "`r"
+            result .= RTrim(A_LoopField,"`t ") "`r`n"
+        return RTrim(result,"`r`n`t")
+    }
+    getStdErr() {
+        If (InStr(this.mode,"x") And !this.m) { ; StdErr in separate stream
+            stdErr := RTrim(Trim(this.fStdErr.read(),"`r`n"))
+            If (stdErr != "")
+                (this.stdErr="") ? this.stderr := stderr : this.stderr .= "`r`n" stderr
+        }
+    }
+    promptEvent(prompt) {
+        PromptCallback := this.PromptCallback
+        (this.ready) ? this.batchProgress += 1 : "" ; increment batchProgress / when this is 1, the first command has been completed.
+        this.stdout := Trim(this.stdout,"`r`n")
+        (IsFunc(PromptCallback)) ? %PromptCallback%(prompt,this.ID,this) : ""   ; trigger callback function
+        
+        (!this.ready) ? (this.ready := true) : ""           ; set ready after first prompt
+        (this.batchCmd) ? this.write(this.batchCmd) : ""    ; write next command in batch, if any
     }
     write(sInput:="") {
-        sInput := Trim(sInput,OmitChars:="`r`n")
-        If (sInput = "")
-            Return
+        If !this.run {
+            Msgbox "The command has not been run yet.  You must call:`r`n`r`n     cliObj.runCmd()"
+            return
+        }
         
-        mode := this.mode, ID := this.ID, delay := this.delay, stream := this.stream, pid := this.pid
+        sInput := Trim(sInput,OmitChars:="`r`n")
+        If (sInput = "") Or this.terminateBatch {
+            this.lastCmd := "", this.batchCmd := "", this.terminateBatch := false, this.batchProgress := 0, this.batchCmdLines := 0
+            Return
+        }
+        
+        delay := this.delay
+        While !this.ready
+            Sleep this.delay ; Ensure commands are not sent until initial prompt is complete, indicating CLI session is ready.
+        
         cmdLines := this.shellCmdLines(sInput,firstCmd,batchCmd) ; ByRef firstCmd / ByRef batchCmd
-        this.batchCmd := batchCmd, this.lastCmd := firstCmd, this.cmdHistory .= firstCmd "`r`n"
+        this.lastCmd := firstCmd, this.batchCmd := batchCmd, this.cmdHistory .= firstCmd "`r`n" ; this.firstCmd := firstCmd
         
         androidRegEx := "i)^((.*[ ])?adb (-a |-d |-e |-s [a-zA-Z0-9]*|-t [0-9]+|-H |-P |-L [a-z0-9:_]*)?[ ]?shell)$"
         If (RegExMatch(firstCmd,androidRegEx)) ; check shell change on-the-fly for ADB
@@ -646,59 +557,24 @@ class cli {
         Else If (RegExMatch(firstCmd,"i)[ ]*exit[ ]*")) ; change back to windows on EXIT command
             this.shell := "windows"
         
-        If (InStr(mode,"m"))
-            this.consoleSend(firstCmd) ; special method to send text to console
-        Else
-            f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(firstCmd "`r`n"), f.close(), f := "" ; send cmd
+        f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(firstCmd "`r`n"), f.close(), f := "" ; send cmd
         
-        If (this.shell = "android" And !InStr(mode,"m")) ; check shell
+        If (this.shell = "android" And !this.m) ; check shell
             this.uWrite(this.checkShell()) ; ADB - appends missing prompt after data complete
     }
     uWrite(sInput:="") { ; INTERNAL, don't use - this prevents .write() from triggering itself
-        sInput := Trim(sInput,OmitChars:="`r`n")
-        If (sInput != "") {
-            If (InStr(this.mode,"m")) {
-                this.consoleSend(sInput)
-            } Else
-                f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(sInput "`r`n"), f.close(), f := "" ; send cmd
-        }
-    }
-    consoleSend(inText) { ; internal, do not use directly, use .write(str) instead
-        inText .= "`r`n"
-        ir := BufferAlloc(24, 0)        ; ir := new INPUT_RECORD
-        NumPut("UShort", 1, ir, 0)      ; ir.EventType := KEY_EVENT
-        NumPut("UShort", 1, ir, 8)      ; ir.KeyEvent.wRepeatCount := 1
-        
-        Loop Parse inText
-        {
-            NumPut("UShort", Ord(A_LoopField), ir, 14)
-            
-            NumPut("Int", true, ir, 4)  ; ir.KeyEvent.bKeyDown := true
-            keydown := DllCall("WriteConsoleInput", "Ptr", this.hStdIn, "Ptr", ir.ptr, "uint", 1, "uint*", 0)
-            
-            NumPut("Int", false, ir, 4) ; ir.KeyEvent.bKeyDown := false
-            keyup := DllCall("WriteConsoleInput", "Ptr", this.hStdIn, "Ptr", ir.ptr, "uint", 1, "uint*", 0)
-        }
-    }
-    read(chars:="") {
-        if (this.fStdOut.AtEOF=0) {
-            rawCli := BufferAlloc(size := (!chars ? this.fStdOut.Length : chars), 0)
-            this.fStdOut.RawRead(rawCli,size)
-            str := Trim(StrGet(rawCli,size,this.codepage))
-            
-            return str
-        }
-    }
-    ctrlBreak() {
-        this.KeySequence("^{CtrlBreak}")
-    }
-    ctrlC() {
-        this.KeySequence("^c")
+        sInput := Trim(sInput,"`r`n")
+        If (sInput != "")
+            f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(sInput "`r`n"), f.close(), f := "" ; send cmd
     }
     KeySequence(sInput) {
         curSet := A_DetectHiddenWindows
         DetectHiddenWindows true
         If (WinExist("ahk_pid " this.pid)) {
+            
+            If (this.m)
+                DllCall("CloseHandle","Ptr",this.hStdOut) ; close handle before free console on mode "m"
+            
             DllCall("FreeConsole")
             SetTimer this.stream, 0
             ControlSend sInput,, "ahk_pid " this.pid
@@ -708,34 +584,30 @@ class cli {
         DetectHiddenWindows curSet
     }
     ReattachConsole() {
-        delay := this.delay, stream := this.stream
         If (ProcessExist(this.pID)) {
-            result := DllCall("AttachConsole", "uint", this.pID) ; retry attach console until success
+            result := DllCall("AttachConsole", "uint", this.pID)
             
-            If (InStr(this.mode,"m")) {
-                hStdIn  := DllCall("GetStdHandle", "int", -10, "ptr"), this.hStdIn  := hStdIn
+            If (this.m)
                 hStdOut := DllCall("GetStdHandle", "int", -11, "ptr"), this.hStdOut := hStdOut
-            }
             
-            SetTimer this.stream, this.delay
+            delay := this.delay, stream := this.stream
+            SetTimer stream, delay
         }
-    }
-    kill() {    ; not as important now that ctrlBreak() works, but still handy
-        DllCall("TerminateProcess","Ptr",this.hProc,"UInt",0)
-        this.close()
     }
     getPrompt(str,chEnv:=false) { ; catching shell prompt
         result := "", this.shellMatch := ""
         If (!str)
             return ""
         
-        winRegEx := "[\r\n]*([A-Z]\:\\[^/?<>:*|" Chr(34) "]*>)$" ; orig: "[\n]?([A-Z]\:\\[^/?<>:*|``]*>)$"
-        netshRegEx := "[\r\n]*(netsh[ a-z0-9]*\>)$"
-        telnetRegEx := "[\r\n]*(\QMicrosoft Telnet>\E)$"
+        winRegEx     := "[\r\n]*((PS )?[A-Z]\:\\[^/?<>:*|" Chr(34) "]*>)$" ; orig: "[\n]?([A-Z]\:\\[^/?<>:*|``]*>)$"
+        netshRegEx   := "[\r\n]*(netsh[ a-z0-9]*\>)$"
+        telnetRegEx  := "[\r\n]*(\QMicrosoft Telnet>\E)$"
         androidRegEx := "[\r\n]*([\d]*\|?[\-_a-z0-9]+\:[^\r\n]+ (\#|\$)[ ]?)$"
-        sshRegEx := "[\r\n]*([a-z][a-z0-9_\-]+\@?[\w_\-\.]*\:[^`r`n]*?[\#\$][ `t]*)$"
+        sshRegEx     := "[\r\n]*([a-z][a-z0-9_\-]+\@?[\w_\-\.]*\:[^`r`n]*?[\#\$][ `t]*)$"
         
-        If (RegExMatch(str,netshRegEx,match)) {
+        If (this.shell = "windows" And RegExMatch(str,"\r\n>>$")) {
+            result := ">>"
+        } Else If (RegExMatch(str,netshRegEx,match)) {
             result := match.Count() ? match.Value(1) : ""
             If (chEnv)
                 this.shell := "netsh", this.shellMatch := match.Value(1)
@@ -761,22 +633,22 @@ class cli {
     }
     GetLastLine(sInput:="") { ; get last line from any data chunk
         sInput := sInput, lastLine := ""
-        arr := StrSplit(sInput,"`n","`r")
-        lastLine := (arr.Length) ? arr[arr.Length] : "", arr := ""
+        Loop Parse sInput, "`n", "`r"
+            lastLine := A_LoopField
         return lastLine
     }
     removePrompt(buffer,lastLine) {
         If (lastLine = "")
             return buffer
         Else {
-            buffer := Trim(buffer,"`r`n ")
+            buffer := RTrim(buffer,"`r`n ")
             nextLine := this.GetLastLine(buffer)
             While (nextLine = lastLine) {
-                buffer := RegExReplace(buffer,"(\r\n|\r|\n)?\Q" lastLine "\E$","")
+                buffer := RegExReplace(buffer,"\Q" lastLine "\E$","")
                 nextLine := this.GetLastLine(buffer)
             }
             
-            return Trim(buffer," `r`n")
+            return Trim(buffer,"`r`n")
         }
     }
     checkShell() {
@@ -786,24 +658,14 @@ class cli {
             return ""
     }
     shellCmdLines(str, ByRef firstCmd, ByRef batchCmd) {
-        firstCmd := "", batchCmd := "", str := Trim(str,OmitChars:=" `t`r`n"), i := 0
+        firstCmd := "", batchCmd := "", str := Trim(str," `t`r`n"), i := 0
         Loop Parse str, "`n", "`r"
         {
-            If (A_LoopField != "") {
-                i++
-                If (A_Index = 1)
-                    firstCmd := A_LoopField
-                Else
-                    batchCmd .= A_LoopField "`r`n"
-            }
+            If (A_LoopField != "")
+                i++, ((A_Index = 1) ? (firstCmd := A_LoopField) : (batchCmd .= A_LoopField "`r`n"))
         }
+        batchCmd := Trim(batchCmd," `r`n`t")
         return i
-    }
-    AtEOF() {
-        return this.fStdOut.AtEOF
-    }
-    Length() {
-        return this.fStdOut.Length
     }
     filterCtlCodes(buffer) {
         buffer := RegExReplace(buffer,"\x1B\[\d+\;\d+H","`r`n")
