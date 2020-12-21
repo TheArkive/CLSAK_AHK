@@ -289,7 +289,7 @@ CliData(inCommand:="") {
     If (!inCommand)
         return ""
     Else {
-        cli_session := cli.New(inCommand,"mode:r","cmd","/K /Q")  ; run command, prune prompt
+        cli_session := cli.New(inCommand,"mode:r","cmd","/Q /K")  ; run command, prune prompt
         result := ""
         
         While !cli_session.batchProgress
