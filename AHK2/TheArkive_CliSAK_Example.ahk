@@ -104,7 +104,7 @@ Example3(oCtl,Info) { ; streaming example
          . "ECHO. & ECHO This is useful for running a batch of commands to collect output in a single session, instead of creating and destroying the CLI session for every command. & "
          . "ECHO. & ECHO If you don't need to track errors in realtime, it is even more efficient to run a single batch file and collect output that way."
     
-	c := cli.New(cmd,"ID:Console_Simple") ; Only using PromptCallback()
+	c := cli.New(cmd,"ID:Console_Simple","cmd","/K") ; Only using PromptCallback()
 }
 ; ============================================================================
 ; ============================================================================
@@ -226,7 +226,9 @@ QuitCallback(quitStr,ID,cliObj) { ; stream until user-defined QuitString is enco
 }
 
 StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
-	If (ID = "Console_Streaming") {
+    If (ID = "Console_Simple") {
+        ; debug.msg(data)
+    } Else If (ID = "Console_Streaming") {
         If (oGui["CmdOutput"].Value = "")
             AppendText(oGui["CmdOutput"].hwnd,data) ; append data to edit box
         Else AppendText(oGui["CmdOutput"].hwnd,"`r`n" data)
@@ -263,6 +265,8 @@ PromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: Pr
     If (ID = "Console_Simple") {                                ; >>> simple console example
         oGui["CmdOutput"].Value := cliObj.stdout
         cliObj.stdout := "" ; clear StdOut/StdErr for a proper interactive console.
+        
+        ; debug.msg(prompt)
     } Else If (ID = "error" And cliObj.Ready) {
         stdOut := ">>> StdOut:`r`n" RTrim(cliObj.stdout,"`r`n`t") "`r`n`r`n"
         stdErr := ">>> StdErr:`r`n" RTrim(cliObj.stderr,"`r`n`t") "`r`n`r`n"
