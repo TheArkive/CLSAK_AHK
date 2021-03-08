@@ -479,9 +479,6 @@ class cli {
         SOcb := this.StdOutCallback, _QuitCallback := this.QuitCallback
         cbQuitExist := false, cbStdOutExist := false
         
-        dbg(_QuitCallback " / Type: " Type(%_QuitCallback%))
-        dbg(SOcb " / Type: " Type(this.stdOutCallback))
-        
         Try _QuitCallback := (Type(%_QuitCallback%) = "Func") ? %_QuitCallback% : false
         Try SOcb := (Type(%SOcb%) = "Func") ? %SOcb% : false
         
@@ -493,8 +490,6 @@ class cli {
             (this.fStdOut.AtEOF And this.fStdErr.AtEOF) ? fullEOF := true : fullEOF := false
         
         If (buf) {
-            ; debug.msg(buf)
-            
             If (!this.m) Or (this.m And this.stdoutRaw != buf) { ; normal collection - when there's a buffer
                 this.stdoutRaw := buf, buf := this.clean_lines(buf)                                ; RTrim() spaces from buffer with .clean_lines()
                 InStr(this.mode,"f") ? (buf := this.filterCtlCodes(buf)) : ""                         ; remove control codes (SSH, older ADB)
