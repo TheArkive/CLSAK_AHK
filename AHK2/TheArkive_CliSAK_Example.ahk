@@ -12,23 +12,24 @@ Global done := "__Batch Complete__"
 CmdGui()
 
 CmdGui() {
-	oGui := Gui.New("+Resize","Console")
-	oGui.OnEvent("Close","CmdClose")
-    oGui.OnEvent("Size","CmdSize")
+    Global oGui
+	oGui := Gui("+Resize","Console")
+	oGui.OnEvent("Close",CmdClose)
+    oGui.OnEvent("Size",CmdSize)
 	oGui.SetFont("s8","Courier New")
 	
-	oGui.Add("button","","Ex #1").OnEvent("Click","Example1")
-	oGui.Add("button","x+0","Ex #2").OnEvent("Click","Example2")
-	oGui.Add("button","x+0","Ex #3").OnEvent("Click","Example3")
-	oGui.Add("button","x+0","Ex #4").OnEvent("Click","Example4")
-	oGui.Add("button","x+0","Ex #5").OnEvent("Click","Example5")
-	oGui.Add("button","x+0","Ex #6").OnEvent("Click","Example6")
-	oGui.Add("button","x+0","Ex #7").OnEvent("Click","Example7")
-	oGui.Add("button","x+0","Ex #8").OnEvent("Click","Example8")
+	oGui.Add("button","","Ex #1").OnEvent("Click",Example1)
+	oGui.Add("button","x+0","Ex #2").OnEvent("Click",Example2)
+	oGui.Add("button","x+0","Ex #3").OnEvent("Click",Example3)
+	oGui.Add("button","x+0","Ex #4").OnEvent("Click",Example4)
+	oGui.Add("button","x+0","Ex #5").OnEvent("Click",Example5)
+	oGui.Add("button","x+0","Ex #6").OnEvent("Click",Example6)
+	oGui.Add("button","x+0","Ex #7").OnEvent("Click",Example7)
+	oGui.Add("button","x+0","Ex #8").OnEvent("Click",Example8)
 	
-	oGui.Add("Button","x+20","Show Window").OnEvent("Click","ShowWindow")
-	oGui.Add("Button","x+0","Hide Window").OnEvent("Click","HideWindow")
-    oGui.Add("Button","x+0","Copy Selection").OnEvent("Click","copy")
+	oGui.Add("Button","x+20","Show Window").OnEvent("Click",ShowWindow)
+	oGui.Add("Button","x+0","Hide Window").OnEvent("Click",HideWindow)
+    oGui.Add("Button","x+0","Copy Selection").OnEvent("Click",copy)
 	
 	ctl := oGui.Add("Edit","vCmdOutput xm w800 h400 ReadOnly")
 	ctl := oGui.Add("Text","vCmdPrompt w800 y+0","Prompt>")
@@ -39,15 +40,17 @@ CmdGui() {
 }
 
 ShowWindow(oCtl,Info) {
+    Global c
 	WinShow "ahk_pid " c.pid
 }
 
 HideWindow(oCtl,Info) {
+    Global c
 	WinHide "ahk_pid " c.pid
 }
 
 copy(oCtl,info) {
-    A_Clipboard := EditGetSelectedText(oGui["CmdOutput"].hwnd)
+    A_Clipboard := EditGetSelectedText(oCtl.gui["CmdOutput"].hwnd)
     Msgbox "Selected text copied."
 }
 
@@ -63,6 +66,7 @@ CmdSize(o, MinMax, Width, Height) {
 }
 
 CmdClose(o) {
+    Global c
 	If (IsObject(c))
 		c.close()
 	ExitApp
@@ -71,6 +75,7 @@ CmdClose(o) {
 ; ============================================================================
 ; ============================================================================
 Example1(oCtl,Info) { ; simple example
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c:=""
 	oGui["CmdOutput"].Value := ""
@@ -82,6 +87,7 @@ Example1(oCtl,Info) { ; simple example
 ; ============================================================================
 ; ============================================================================
 Example2(oCtl,Info) { ; simple example, short delay
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c:=""
 	oGui["CmdOutput"].Value := ""
@@ -94,6 +100,7 @@ Example2(oCtl,Info) { ; simple example, short delay
 ; ============================================================================
 ; ============================================================================
 Example3(oCtl,Info) { ; streaming example
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c := ""
 	oGui["CmdOutput"].Value := ""
@@ -104,12 +111,13 @@ Example3(oCtl,Info) { ; streaming example
          . "ECHO. & ECHO This is useful for running a batch of commands to collect output in a single session, instead of creating and destroying the CLI session for every command. & "
          . "ECHO. & ECHO If you don't need to track errors in realtime, it is even more efficient to run a single batch file and collect output that way."
     
-	c := cli.New(cmd,"ID:Console_Simple","cmd","/K") ; Only using PromptCallback()
+	c := cli(cmd,"ID:Console_Simple","cmd","/K") ; Only using PromptCallback()
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands, and QuitString
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c:=""
 	oGui["CmdOutput"].Value := ""
@@ -120,12 +128,13 @@ Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands, a
            . "ECHO. & ECHO "
 	
 	; Mode "r" removes prompt and command from data, so only output is visible.
-	c := cli.New(batch,"mode:r|ID:Console_Streaming") ; Only using StdOutCallback()
+	c := cli(batch,"mode:r|ID:Console_Streaming") ; Only using StdOutCallback()
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example5(oCtl,Info) { ; CTRL+C and CTRL+Break examples ; if you need to copy, disable CTRL+C (^c) hotkey below
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c:=""
 	oGui["CmdOutput"].Value := ""
@@ -134,18 +143,19 @@ Example5(oCtl,Info) { ; CTRL+C and CTRL+Break examples ; if you need to copy, di
          . "CTRL+Break and CTRL+C will do different things depending on each command."
     
 	cmd := "ping 127.0.0.1 & ping 127.0.0.1`r`n"
-         . "ECHO. & The session is still active."
-	c := cli.New(cmd,"ID:Console_Streaming") ; Only using StdOutCallback()
+         . "ECHO. & ECHO The session is still active."
+	c := cli(cmd,"ID:Console_Streaming") ; Only using StdOutCallback()
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example6(oCtl,Info) { ; stderr example
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c:=""
 	oGui["CmdOutput"].Value := ""
 	
-	c := cli.New("dir poof","mode:xr|ID:error",,"/Q /K") ; blank param is "cmd" by default
+	c := cli("dir poof","mode:xr|ID:error",,"/Q /K") ; blank param is "cmd" by default
     
 	; Mode "x" separates StdErr from StdOut.
     ; Mode "r" removes prompt and command from output.
@@ -157,11 +167,12 @@ Example6(oCtl,Info) { ; stderr example
 ; ============================================================================
 ; ============================================================================
 Example7(oCtl,Info) {
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c:="" ; delete object and clear previous instance
 	oGui["CmdOutput"].Value := "This is an interactive console.`r`n`r`n"
 	
-    c := cli.New("","mode:rx|ID:PowerShell","powershell")
+    c := cli("","mode:rx|ID:PowerShell","powershell")
     
 	; Mode "r" removes the prompt from StdOut.
 	; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
@@ -177,6 +188,7 @@ Example7(oCtl,Info) {
 ; ============================================================================
 ; ============================================================================
 Example8(oCtl,Info) { ; mode "m" example
+    Global oGui, c
 	If (IsObject(c))
 		c.close(), c:="" ; close previous instance first.
 	
@@ -211,13 +223,14 @@ Example8(oCtl,Info) { ; mode "m" example
 	; the remenants of the previous line.
 	; ========================================================================================
 	
-	c := cli.New(cmd,"mode:m(150,10)r|ID:mode_M|showWindow:1") ; console size = 150 columns / 10 rows
+	c := cli(cmd,"mode:m(150,10)r|ID:mode_M|showWindow:1") ; console size = 150 columns / 10 rows
 }
 
 ; ============================================================================
 ; Callback Functions
 ; ============================================================================
 QuitCallback(quitStr,ID,cliObj) { ; stream until user-defined QuitString is encountered (optional).
+    Global oGui
     If (ID = "ModeM")
         oGui["CmdOutput"].Value := "Download Complete"
     
@@ -226,9 +239,8 @@ QuitCallback(quitStr,ID,cliObj) { ; stream until user-defined QuitString is enco
 }
 
 StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
-    If (ID = "Console_Simple") {
-        ; debug.msg(data)
-    } Else If (ID = "Console_Streaming") {
+    Global oGui
+    If (ID = "Console_Streaming" Or ID = "Console_Simple") {
         If (oGui["CmdOutput"].Value = "")
             AppendText(oGui["CmdOutput"].hwnd,data) ; append data to edit box
         Else AppendText(oGui["CmdOutput"].hwnd,"`r`n" data)
@@ -260,13 +272,12 @@ StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
 }
 
 PromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: PromptCallback()
+    Global oGui
 	oGui["CmdPrompt"].Text := prompt ; echo prompt to text control in GUI
     
     If (ID = "Console_Simple") {                                ; >>> simple console example
         oGui["CmdOutput"].Value := cliObj.stdout
         cliObj.stdout := "" ; clear StdOut/StdErr for a proper interactive console.
-        
-        ; debug.msg(prompt)
     } Else If (ID = "error" And cliObj.Ready) {
         stdOut := ">>> StdOut:`r`n" RTrim(cliObj.stdout,"`r`n`t") "`r`n`r`n"
         stdErr := ">>> StdErr:`r`n" RTrim(cliObj.stderr,"`r`n`t") "`r`n`r`n"
@@ -286,14 +297,16 @@ PromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: Pr
 ; send command to CLI instance when user presses ENTER
 ; ============================================================================
 
-OnMessage(0x0100,"WM_KEYDOWN") ; WM_KEYDOWN
+OnMessage(0x0100,WM_KEYDOWN) ; WM_KEYDOWN
 WM_KEYDOWN(wParam, lParam, msg, hwnd) { ; wParam = keycode in decimal | 13 = Enter | 32 = space
+    Global oGui
     CtrlHwnd := "0x" Format("{:x}",hwnd) ; control hwnd formatted to match +HwndVarName
     If (CtrlHwnd = oGui["CmdInput"].hwnd And wParam = 13) ; ENTER in App List Filter
-		SetTimer "SendCmd", -10 ; this ensures cmd is sent and control is cleared
+		SetTimer SendCmd, -10 ; this ensures cmd is sent and control is cleared
 }
 
 SendCmd() { ; timer label from WM_KEYDOWN	
+    Global oGui
 	CmdInput := oGui["CmdInput"].Value
 	c.write(CmdInput) ; send cmd
 	
