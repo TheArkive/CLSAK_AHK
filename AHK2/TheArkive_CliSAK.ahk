@@ -476,11 +476,10 @@ class cli {
     }
     sGet() { ; stream-Get (timer) - collects until process exits AND buffer is empty
         batchCmd := Trim(this.batchCmd," `r`n`t"), prompt := "", stream := this.stream
-        SOcb := this.StdOutCallback, _QuitCallback := this.QuitCallback
-        cbQuitExist := false, cbStdOutExist := false
+        cbStdOut := false, cbQuit := false
         
-        Try _QuitCallback := (Type(%_QuitCallback%) = "Func") ? %_QuitCallback% : false
-        Try SOcb := (Type(%SOcb%) = "Func") ? %SOcb% : false
+        Try cbQuit := (Type(%this.QuitCallback%) != "String") ? %this.QuitCallback% : false
+        Try cbStdOut := (Type(%this.StdOutCallback%) != "String") ? %this.StdOutCallback% : false
         
         buf := (!this.m) ? this.fStdOut.read() : this.mGet() ; check StdOut buffer
         this.getStdErr()                                        ; check StdErr buffer
@@ -492,19 +491,19 @@ class cli {
         If (buf) {
             If (!this.m) Or (this.m And this.stdoutRaw != buf) { ; normal collection - when there's a buffer
                 this.stdoutRaw := buf, buf := this.clean_lines(buf)                                ; RTrim() spaces from buffer with .clean_lines()
-                InStr(this.mode,"f") ? (buf := this.filterCtlCodes(buf)) : ""                         ; remove control codes (SSH, older ADB)
+                InStr(this.mode,"f") ? (buf := this.filterCtlCodes(buf)) : ""                      ; remove control codes (SSH, older ADB)
                 prompt := this.getPrompt(buf,true), buf := this.removePrompt(buf,prompt)           ; isolate prompt from buffer
                 buf := RegExReplace(buf,"^\Q" this.lastCmd "\E","")
                 
-                If (this.QuitString And RegExMatch(Trim(buf,"`r`n`t"),"\Q" this.QuitString "\E$") And _QuitCallback) {
-                    _QuitCallback(this.QuitString,this.ID,this) ; check for QuitString before prompt is added
+                If (this.QuitString And RegExMatch(Trim(buf,"`r`n`t"),"\Q" this.QuitString "\E$") And cbQuit) {
+                    cbQuit(this.QuitString,this.ID,this) ; check for QuitString before prompt is added
                     this.close()
                     return
                 }
                 
                 (!this.m) ? this.stdout .= "`r`n" buf : this.stdout := buf ; write/append buffer to .stdout
                 
-                (SOcb) ? SOcb(buf,this.ID,this) : ""  ; trigger StdOut callback
+                (cbStdOut) ? cbStdOut(buf,this.ID,this) : ""  ; trigger StdOut callback
                 (prompt) ? this.promptEvent(prompt) : ""           ; trigger prompt casllback
             } 
         }
@@ -528,13 +527,13 @@ class cli {
         }
     }
     promptEvent(prompt) {
-        _PromptCallback := this.PromptCallback
-        Try _PromptCallback := (Type(%_PromptCallback%) = "Func") ? %_PromptCallback% : false
+        cbPrompt := false
+        Try cbPrompt := (Type(%this.PromptCallback%) != "String") ? %this.PromptCallback% : false
         
         (this.ready) ? this.batchProgress += 1 : "" ; increment batchProgress / when this is 1, the first command has been completed.
         this.stdout := Trim(this.stdout,"`r`n")
         
-        (_PromptCallback) ? _PromptCallback(prompt,this.ID,this) : ""   ; trigger callback function
+        (cbPrompt) ? cbPrompt(prompt,this.ID,this) : ""   ; trigger callback function
         
         (!this.ready) ? (this.ready := true) : ""           ; set ready after first prompt
         (this.batchCmd) ? this.write(this.batchCmd) : ""    ; write next command in batch, if any
