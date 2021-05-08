@@ -37,7 +37,7 @@
 ;       Using this library, this function is the easiest way to "just run a command and collect the data".
 ;
 ; ========================================================================================================
-;   new cli(sCmd:="", options:="", env:="cmd", params:="/Q")
+;   cli_obj := cli(sCmd:="", options:="", env:="cmd", params:="/Q")
 ; ========================================================================================================
 ;   Parameters:
 ;
@@ -370,8 +370,8 @@ class cli {
         }
         this.hStdErr := InStr(this.mode,"x") ? hStdErrRd : hStdOutRd
         
-        pi := BufferAlloc((p=4)?16:24, 0)                               ; PROCESS_INFORMATION structure
-        si := BufferAlloc(siSize:=(p=4)?68:104,0)                       ; STARTUPINFO Structure
+        pi := Buffer((p=4)?16:24, 0)                               ; PROCESS_INFORMATION structure
+        si := Buffer(siSize:=(p=4)?68:104,0)                       ; STARTUPINFO Structure
         NumPut("UInt", siSize, si, 0)                                   ; cb > structure size
         NumPut("UInt", 0x100|0x1, si, (p=4)?44:60)                      ; STARTF_USESTDHANDLES (0x100) | STARTF_USESHOWWINDOW (0x1)
         NumPut("UShort", this.showWindow ? 0x1 : 0x0, si, (p=4)?48:64)  ; wShowWindow / 0x1 = show
@@ -457,8 +457,8 @@ class cli {
         Static enc := StrLen(Chr(0xFFFF)) ? "UTF-16" : "UTF-8"
         otherStr := "", curPos := 1
         If (exist := ProcessExist(this.pID)) {
-            lpCharacter := BufferAlloc(this.conWidth * this.conHeight * 2,0)  ; console buffer size to collect
-            dwBufferCoord := BufferAlloc(4,0)                                 ; top-left start point for collection
+            lpCharacter := Buffer(this.conWidth * this.conHeight * 2,0)  ; console buffer size to collect
+            dwBufferCoord := Buffer(4,0)                                 ; top-left start point for collection
             
             result := DllCall("ReadConsoleOutputCharacter"
                              ,"UInt",this.hStdOut   ; console buffer handle
@@ -607,32 +607,27 @@ class cli {
         
         winRegEx     := "[\r\n]*((PS )?[A-Z]\:\\[^/?<>:*|" Chr(34) "]*>)$" ; orig: "[\n]?([A-Z]\:\\[^/?<>:*|``]*>)$"
         netshRegEx   := "[\r\n]*(netsh[ a-z0-9]*\>)$"
-        telnetRegEx  := "[\r\n]*(\QMicrosoft Telnet>\E)$"
         androidRegEx := "[\r\n]*([\d]*\|?[\-_a-z0-9]+\:[^\r\n]+ (\#|\$)[ ]?)$"
         sshRegEx     := "[\r\n]*([a-z][a-z0-9_\-]+\@?[\w_\-\.]*\:[^`r`n]*?[\#\$][ `t]*)$"
         
         If (this.shell = "windows" And RegExMatch(str,"\r\n>>$")) {
             result := ">>"
         } Else If (RegExMatch(str,netshRegEx,&match)) {
-            result := match.Count() ? match.Value(1) : ""
+            result := match.Count ? match[1] : ""
             If (chEnv)
-                this.shell := "netsh", this.shellMatch := match.Value(1)
-        } Else If (RegExMatch(str,telnetRegEx,&match)) {
-            result := match.Count() ? match.Value(1) : ""
-            If (chEnv)
-                this.shell := "telnet"
+                this.shell := "netsh", this.shellMatch := match[1]
         } Else If (RegExMatch(str,winRegEx,&match)) {
-            result := match.Count() ? match.Value(1) : ""
+            result := match.Count ? match[1] : ""
             If (chEnv)
-                this.shell := "windows", this.shellMatch := match.Value(1)
+                this.shell := "windows", this.shellMatch := match[1]
         } Else If (RegExMatch(str,androidRegEx,&match)) {
-            result := match.Count() ? match.Value(1) : ""
+            result := match.Count ? match[1] : ""
             If (chEnv)
-                this.shell := "android", this.shellMatch := match.Value(1)
+                this.shell := "android", this.shellMatch := match[1]
         } Else If (RegExMatch(str,sshRegEx,&match)) {
-            result := match.Count() ? match.Value(1) : ""
+            result := match.Count ? match[1] : ""
             If (chEnv)
-                this.shell := "ssh", this.shellMatch := match.Value(1)
+                this.shell := "ssh", this.shellMatch := match[1]
         }
         
         return result
