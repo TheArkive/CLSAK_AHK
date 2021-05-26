@@ -311,7 +311,7 @@ class cli {
     batchCmdLines:=0, batchProgress:=0, batchCmd:="", terminateBatch := false
     fStdErr:={AtEOF:1, Handle:0}, fStdOut:={AtEOF:1, Handle:0}
     
-    __New(sCmd, options:="", env:="cmd", params:="/Q") {
+    __New(sCmd, options:="", env:="cmd", params:="/Q /K") {
         this.env := (!FileExist(env)) ? this.check_exe(env) : env
         this.params := params
         
