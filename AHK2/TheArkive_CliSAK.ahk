@@ -37,7 +37,7 @@
 ;       Using this library, this function is the easiest way to "just run a command and collect the data".
 ;
 ; ========================================================================================================
-;   cli_obj := cli(sCmd:="", options:="", env:="cmd", params:="/Q")
+;   cli_obj := cli(sCmd:="", options:="", env:="cmd", params:="/Q /K")
 ; ========================================================================================================
 ;   Parameters:
 ;
@@ -59,16 +59,18 @@
 ;           EXE.  If the environment you want to use is not in PATH, then specify the full path in this
 ;           parameter.
 ;
-;       params
-;           The default param is /Q to set ECHO OFF.  This prevents your commands from displaying in the
-;           CLI session.  However, CliObj.lastCmd contains your last command so you can reconstruct a
-;           normal-looking CLI session if you desire.
+;           NOTE: If you specify "powershell" for env param, the default "params" is blank, not "/Q /K".
 ;
-;           Other Examples:
-;           > "/K" -- for env:="cmd", this will omit the shell version text when the CLi session starts,
-;             thus only displaying the prompt.
+;       params
+;           The default param is "/Q /K" to set ECHO OFF.  The /Q prevents your commands from displaying in
+;           the CLI session.  However, CliObj.lastCmd contains your last command so you can reconstruct a
+;           normal-looking CLI session if you desire.  The /K prevents the typical Microsoft logo from
+;           appearing in the CLI session.  If you want text this logo to appear, then specify a value for
+;           params.
 ;
 ;           Check the help docs for your CLI shell to know what the options are and how to use them.
+;
+;           NOTE: If you specify "powershell" for env param, the default "params" is blank, not "/Q /K".
 ; ========================================================================================================
 ; Options
 ; ========================================================================================================
@@ -78,12 +80,12 @@
 ;       callback functions.  If you manage multiple CLI sessions simultaneously you may want to use this
 ;       option to tell which session is which within your callback functions.
 ;
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;   Modes define how the CLI instance is launched and handled.
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;       This library now operates in only streaming mode.  Use CliData() wrapper function for single
 ;       command output.
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;       IMPORTANT NOTES ABOUT THIS LIBRARY:
 ;           Except when using the CliData() wrapper function, the user MUST call obj.Close() to
 ;           terminate the CLI session and open handles after properly exiting the programs called during
@@ -93,20 +95,18 @@
 ;                1) cmd.exe
 ;                2) the program you ran on the command line
 ;                3) conhost.exe (you will see more than usual - I usually see 3 of these on my system)
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;   mode:[modes]  -  Primary Modes
 ;
 ;       The default mode is streaming (previously mode "s"), which generally means constant data
 ;       collection from StdOut.  There is no need to specify mode "s" as this is now the default mode.
 ;
 ;       mode "m" (Monitoring mode) This allows the user to record text as actually seen on a typical
-;           console.  Best if used with the StdOutCallback() and PromptCallback() functions.  Useful
-;           for capturing animations like incrementing percent, or a progress bar... ie. [90%]{======> }
+;           console.  Best if used with the StdOutCallback().  Usage with PromptCallback() can also be
+;           useful.  Mode "m" is used for capturing animations like incrementing percent, or a progress
+;           bar...  ie. "(90%)[=====> ]"
 ;
 ;           A typical console buffer consists of approx 80-120 COLS (columns) and several thousand rows.
-;           So mode "m" comes with the ability to resize the console buffer to use considerably less CPU
-;           when reading the console buffer.  Currently only CMD has been tested with this, but
-;           development is planned for PowerShell.
 ;
 ;               Usage: m(width, height)
 ;               - width : number of columns (of characters)
@@ -118,43 +118,48 @@
 ;
 ;           The size of the console buffer is important to take into account.  The buffer size can affect
 ;           the display of the output you are trying to capture.  If you notice "graphical anomalies"
-;           then try a wider buffer size.
+;           then try a wider buffer size, and/or more rows.
 ;
 ;           You can call mode "x" with mode "m", but there are a few instances when this is not beneficial.
 ;           Some commands may hang if StdErr is not piped to the console buffer.  In general, if you have
 ;           seemingly random or unexplained issues using mode "x" with mode "m", stop using mode "x" and
 ;           see if the issues continue.
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;    mode:[modes]  -  Secondary Modes
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;
+;           WARNING:  Mode "m" has NOT been tested with PowerShell.
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;   mode:[modes]  -  Secondary Modes
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 ;       *** Append these modes as needed to further modify/refine CLI behavior ***
 ;
 ;       mode "c" = Delay sCmd execution.  Execute with obj.RunCmd()  Optionally set more options before
-;            execution by specifying:    CLIobj.option := value
+;           execution by specifying:    CLIobj.option := value
+;
+;           There aren't many instances where this is necessary, but the option is here if you need it.
 ;
 ;       mode "x" = Extract StdErr in a separate pipe for each command.  The full StdErr stream for the
-;           session is still stored in CLIobj.stderr.  This is best used with PromptCallback(). Generally,
-;           you should clear .stdout and .stderr after processing in PromptCallback() to keep the
-;           correlation between the command, stdout, and stderr clear.
+;           session is still stored in:  CLIobj.stderr
 ;
-;       mode "r" = Prune mode, remove prompt from StdOut data.  This only functions as expected when the
-;           prompt is the final line of output.  So, in mode "m", the final prompt will be omitted, but
-;           pervious prompts will be displayed.
+;           This is best used with PromptCallback(). Generally, you should clear .stdout and .stderr
+;           after processing in PromptCallback() to keep the correlation between the command, stdout,
+;           and stderr clear.
 ;
-;       mode "f" = Filter control codes.  This mostly pertains to Linux environments such as SSH or ADB.
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;    More Options
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-;   workingDir:c:\myDir
-;       Set working directory.  Defaults to A_ScriptDir.  Commands that generate files will put those
-;       files here, unless otherwise specified in the command parameters.
+;       mode "f" = Filter control codes.  This mostly pertains to Linux environments such as SSH or
+;           old ADB sessions.
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;   More Options
+;   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+;
+;   AutoClean:1
+;       This option attempts to automatically trim trailing spaces on lines of txt in stdout.  Depending
+;       on the amount of text you capture, and how quickly, this may cost you an undesired performance
+;       hit.  You may be better off analyzing the text you capture closely to determine the type of
+;       treatment it should get.
+;
+;       AutoClean only happens on prompt events.  Note that when using mode "m" lines are automatically
+;       cleaned in this manner, so using this option is usually unnecessary.
 ;
 ;   codepage:CP###
 ;       Codepage (UTF-8 = CP65001 / Windows Console = CP437 / etc...)
-;
-;   StdOutCallback:Give_It_A_Name
-;       Defines the stdOutCallback function name.  If the callback exists, it will fire on this event.
-;       > Default callback: StdOutCallback(data,ID,CLIobj)
 ;
 ;   PromptCallback:Give_It_A_Name
 ;       Defines the PromptCallback function.  If the callback exists, it will fire on this event.
@@ -171,13 +176,17 @@
 ;       packet (usually right before a prompt event as a command finishes) then data collection will
 ;       halt and the QuitCallback will be triggered, then the process will be terminated.  Usually you
 ;       will have your QuitString defined as the last line of your batch, ie. "ECHO My Quit String", or
-;       your QuitString will be a known message output by one of your programs run within the CLI session.
+;       your QuitString will be a known message sent by one of your programs run within the CLI session.
 ;
 ;   showWindow:#
 ;       Specify 0 or 1.  Default = 0 to hide.  1 will show.
 ;       Normally the CLI window will always be blank, except in mode "m".  The CLI window exists so that
 ;       control signals (CTRL+C / CTRL+Break / etc.) can be sent to the window.  See the Methods section
-;       below.  Ultimately this is only provided as a convenience but isn't all that useful.
+;       below.  This is only provided as a convenience for curious coders, but usually isn't very useful.
+;
+;   StdOutCallback:Give_It_A_Name
+;       Defines the stdOutCallback function name.  If the callback exists, it will fire on this event.
+;       > Default callback: StdOutCallback(data,ID,CLIobj)
 ;
 ;   waitTimeout:###   (ms)
 ;       The waitTimeout is an internal correction.  There is a slight pause after sCmd execution before
@@ -186,11 +195,12 @@
 ;       have data after executing a command.  If your command takes longer than 300ms to return data, then
 ;       you may need to increase this value for proper functionality.
 ;
-;   width:#
-;       Sets the number of columns for the console to use.  Only works with mode "m".
+;   width:#  /  height:#
+;       Sets the number of columns/rows for the console to use.  Only effects with mode "m".
 ;
-;   height:#
-;       Sets the number of rows for the console to use.  Only works with mode "m".
+;   workingDir:c:\myDir
+;       Set working directory.  Defaults to A_ScriptDir.  Commands that generate files will put those
+;       files here, unless otherwise specified in the command parameters.
 ;
 ;   NOTE: Height and Width can also be set with mode "m" --> "mode:m(h,w)".  See above.
 ;
@@ -200,21 +210,27 @@
 ;   Methods:
 ; ========================================================================================================
 ;
-;   CLIobj.runCmd()
-;       Runs the command specified in sCmd parameter.  This is meant to be used with mode "c" when
-;       delayed execution is desired.
+;   CLIobj.clean_lines(sInput, sep := "`n")
+;       Trims spaces at the end of each line.  When `n is specified for sep (the default) `r will be
+;       omitted.  When `r is specified for sep, then `n will be omitted.  It is possible to get mixed
+;       line endings in CLI output.  Running this method twice, once with `n as sep, and once with `r
+;       as sep, will take care of trailing spaces on all lines.
 ;
 ;   CLIobj.close()
 ;       Closes all open handles and tries to end the session.  Ending sessions like this usually only
 ;       succeeds when the CLI prompt is idle.  If you need to force termination then send a CTRL+C or
 ;       CTRL+Break signal first.  Read more below.
 ;
+;   CLIobj.GetLastLine(str)
+;       Returns last line of "str".  This is useful in callback functions.
+;
 ;   CLIobj.KeySequence("string")
 ;       Sends a key sequence, ie. CTRL+Key.  DO NOT use this like the .write() method because this method
 ;       is not accurate.  Only use this to send control signals like CTRL+C / CTRL+Break.
 ;
-;   CLIobj.GetLastLine(str)
-;       Returns last line of "str".  This is useful in callback functions.
+;   CLIobj.runCmd()
+;       Runs the command specified in sCmd parameter.  This is meant to be used with mode "c" when
+;       delayed execution is desired.
 ;
 ; ========================================================================================================
 ;    Properties (useful with CLIobj in callback functions):
@@ -222,6 +238,12 @@
 ;
 ;   CLIobj.[option]
 ;       All options above are also properties that can be checked or set.
+;
+;   Cliobj.batchProgress
+;       Contains the iteration count of completed commands.
+;
+;   Cliobj.batchCommands
+;       Contains the total number of commands (lines) passed into the .write() method.
 ;
 ;   CLIobj.cmdHistory
 ;       This is a text list (delimited by `r`n) of commands executed so far during your CLI session. The
@@ -241,12 +263,6 @@
 ;       This is set to FALSE until after the first prompt event has happened, then it is set to TRUE.
 ;       This is most useful for filtering out the first prmopt event when using the prompt callback
 ;       function.
-;
-;   Cliobj.batchProgress
-;       Contains the iteration count of completed commands.
-;
-;   Cliobj.batchCommands
-;       Contains the total number of commands (lines) passed into the .write() method.
 ;
 ;   CLIobj.stderr
 ;       This is the full output of StdErr during the session.  You can check or clear this value.
@@ -309,17 +325,17 @@ class cli {
     ID:="", mode:="", hStdIn:=0, hStdOut:=0, hStdErr:=0, stdout:="", stdoutRaw:="", stderr:="", cmdHistory:="", conWidth:=100, conHeight:=10
     lastCmd:="", cmdCmd:="", cmdSwitches:="", cmdProg:="", useAltShell := "", reason:="", command:=""
     batchCmdLines:=0, batchProgress:=0, batchCmd:="", terminateBatch := false
-    fStdErr:={AtEOF:1, Handle:0}, fStdOut:={AtEOF:1, Handle:0}
+    fStdErr:={AtEOF:1, Handle:0}, fStdOut:={AtEOF:1, Handle:0}, AutoClean := false
     
     __New(sCmd, options:="", env:="cmd", params:="/Q /K") {
         this.env := (!FileExist(env)) ? this.check_exe(env) : env
-        this.params := params
+        this.params := (env = "powershell" && params="/Q /K") ? "" : params
         
         this.batchCmdLines := this.shellCmdLines(sCmd,&firstCmd,&batchCmd)        ; ByRef firstCmd / ByRef batchCmd ; isolate 1st line command
         this.sCmd := sCmd, q := Chr(34), optGrp := StrSplit(options,"|")        ; next load specified properties (options param)
         For i, curItem in optGrp
-            optItem := StrSplit(curItem,":"), this.%optItem[1]% := optItem[2]   ; write options to "this"
-        
+            optItem := SubStr(curItem, 1, (sep := InStr(curItem,":")) - 1)  ; do this with SubStr() otherwise setting WorkingDir won't work
+          , this.%optItem% := SubStr(curItem, sep+1)                        ; write options to "this"
         this.batchCmd := sCmd
         this.stream := ObjBindMethod(this,"sGet") ; register function Obj for timer (stream)
         
@@ -338,7 +354,8 @@ class cli {
         this.close() ; close all handles / objects
     }
     runCmd() {
-        p := A_PtrSize, this.run := true, this.m := !!InStr(this.mode,"m")
+        Static p := A_PtrSize
+        this.run := true, this.m := !!InStr(this.mode,"m")
         
         If (InStr(this.mode,"(") And InStr(this.mode,")") And this.m) { ; mode "m" !!
             s1 := InStr(this.mode,"("), e1 := InStr(this.mode,")"), mParam := SubStr(this.mode,s1+1,e1-s1-1), dParam := StrSplit(mParam,",")
@@ -346,16 +363,22 @@ class cli {
         }
         
         If (this.m) {
-            params_addon := " /K MODE CON: COLS=" this.conWidth " LINES=" this.conHeight
+            hasK := false
+            For i, p in StrSplit(this.params," ")
+                If (hasK := (p = "/K"))
+                    Break
+            
+            params_addon := (!hasK?" /K ":"") " MODE CON: COLS=" this.conWidth " LINES=" this.conHeight
             (this.params) ? this.params .= params_addon : this.params := Trim(params_addon)
         }
+        
         ; implement this for PowerShell
         ; powershell -noexit -command "[console]::WindowWidth=100; [console]::WindowHeight=50; [console]::BufferWidth=[console]::WindowWidth"
         
         hStdInRd := 0, hStdInWr := 0, hStdOutRd := 0, hStdOutWr := 0, hStdErrRd := 0, hStdErrWr := 0 ; init handles
         
-        r1 := DllCall("CreatePipe","Ptr*",&hStdInRd,"Ptr*",&hStdInWr,"Uint",0,"Uint",0) ; get handle - stdIn (R/W)
-        r2 := DllCall("SetHandleInformation","Ptr",hStdInRd,"Uint",1,"Uint",1)            ; set flags inherit - stdIn
+        r1 := DllCall("CreatePipe","Ptr*",&hStdInRd,"Ptr*",&hStdInWr,"Uint",0,"Uint",0)     ; get handle - stdIn (R/W)
+        r2 := DllCall("SetHandleInformation","Ptr",hStdInRd,"Uint",1,"Uint",1)              ; set flags inherit - stdIn
         this.hStdIn := hStdInWr, this.hStdOut := 0
         
         If (!this.m) {
@@ -379,10 +402,6 @@ class cli {
         NumPut("Ptr", hStdInRd , si, (p=4)?56:80)                       ; stdIn handle
         (!this.m) ? NumPut("Ptr", hStdOutWr, si, (p=4)?60:88) : ""      ; stdOut handle
         NumPut("Ptr", InStr(this.mode,"x") ? hStdErrWr : hStdOutWr, si, (p=4)?64:96)    ; stdErr handle (only on mode "x", otherwise use stdout handle)
-        
-        s := "i)^((.*)?adb(.exe)?([ ].*)?[ ]shell)$"
-        If (r := RegExMatch(this.env,s))
-            this.shell := "android"
         
         r := DllCall("CreateProcess"
             , "Str", this.env, "Str", this.params
@@ -412,9 +431,6 @@ class cli {
                 DllCall("CloseHandle","Ptr",hStdErrWr)
                 this.fStdErr := FileOpen(this.hStdErr, "h", this.codepage)
             }
-            
-            If (this.shell = "android" And !this.m) ; specific CLI shell fixes
-                this.uWrite(this.checkShell())
             
             stream := this.stream, delay := this.delay, this.wait() ; wait for buffer to have data, default = 300 ms
             
@@ -489,23 +505,24 @@ class cli {
             (this.fStdOut.AtEOF And this.fStdErr.AtEOF) ? fullEOF := true : fullEOF := false
         
         If (buf) {
-            If (!this.m) Or (this.m And this.stdoutRaw != buf) { ; normal collection - when there's a buffer
-                this.stdoutRaw := buf, buf := this.clean_lines(buf)                                ; RTrim() spaces from buffer with .clean_lines()
-                InStr(this.mode,"f") ? (buf := this.filterCtlCodes(buf)) : ""                      ; remove control codes (SSH, older ADB)
-                prompt := this.getPrompt(buf,true), buf := this.removePrompt(buf,prompt)           ; isolate prompt from buffer
-                buf := RegExReplace(buf,"^\Q" this.lastCmd "\E","")
+            If (!this.m) Or (this.m And this.stdoutRaw != buf) {                                    ; collect when buffer exists
+                this.stdoutRaw := buf                                                               ; record last unmodified buffer
+                InStr(this.mode,"f") ? (buf := this.filterCtlCodes(buf)) : ""                       ; remove control codes (SSH, older ADB)
+                buf := RegExReplace(buf,"^\Q" this.lastCmd "\E[\r\n]*","")                          ; prune the command if it is there
+                prompt := this.getPrompt(buf,true)                                                  ; isolate prompt
+                buf := this.removePrompt(buf,prompt)                                                ; remove prompt from buffer
                 
-                If (this.QuitString And RegExMatch(Trim(buf,"`r`n`t"),"\Q" this.QuitString "\E$") And cbQuit) {
+                If (this.QuitString And RegExMatch(Trim(buf,"`r`n`t"),"\Q" this.QuitString "\E[\r\n]*$") And cbQuit) {
                     cbQuit(this.QuitString,this.ID,this) ; check for QuitString before prompt is added
                     this.close()
                     return
                 }
                 
-                (!this.m) ? this.stdout .= "`r`n" buf : this.stdout := buf ; write/append buffer to .stdout
+                this.stdout .= buf
                 
-                (cbStdOut) ? cbStdOut(buf,this.ID,this) : ""  ; trigger StdOut callback
-                (prompt) ? this.promptEvent(prompt) : ""           ; trigger prompt casllback
-            } 
+                (cbStdOut) ? cbStdOut(buf,this.ID,this) : ""        ; trigger StdOut callback
+                (prompt) ? this.promptEvent(prompt) : ""            ; trigger prompt callback
+            }
         }
         
         If (!ProcessExist(this.pID) And fullEOF) {  ; if process exits AND buffer is empty
@@ -513,11 +530,14 @@ class cli {
             SetTimer stream, 0                      ; stop data collection timer
         }
     }
-    clean_lines(sInput) {
+    clean_lines(sInput, sep:="`n") {
         result := ""
-        Loop Parse sInput, "`n", "`r"
-            result .= RTrim(A_LoopField,"`t ") "`r`n"
-        return RTrim(result,"`r`n`t")
+        omit := (sep = "`n") ? "`r" : "`n"
+        
+        Loop Parse sInput, sep, omit
+            result .= ((A_Index>1)?"`r`n":"") RTrim(A_LoopField," `t")
+        
+        return result
     }
     getStdErr() {
         If (InStr(this.mode,"x") And !this.m) { ; StdErr in separate stream
@@ -527,13 +547,18 @@ class cli {
         }
     }
     promptEvent(prompt) {
+        prompt := StrReplace(StrReplace(prompt,"`r",""),"`n","")
         cbPrompt := false
         Try cbPrompt := (Type(%this.PromptCallback%) != "String") ? %this.PromptCallback% : false
         
-        (this.ready) ? this.batchProgress += 1 : "" ; increment batchProgress / when this is 1, the first command has been completed.
-        this.stdout := Trim(this.stdout,"`r`n")
+        (this.ready) ? this.batchProgress += 1 : ""         ; increment batchProgress / when this is 1, the first command has been completed.
         
-        (cbPrompt) ? cbPrompt(prompt,this.ID,this) : ""   ; trigger callback function
+        If (this.AutoClean) {
+            this.stdout := this.clean_lines(this.stdout)        ; sep by `n first, omit `r
+            this.stdout := this.clean_lines(this.stdout, "`r")  ; sep by `r, omit `n (rare, but does happen)
+        }                                                       ; ... sometimes you get `r line endings without `n
+        
+        (cbPrompt) ? cbPrompt(prompt,this.ID,this) : ""     ; trigger callback function
         
         (!this.ready) ? (this.ready := true) : ""           ; set ready after first prompt
         (this.batchCmd) ? this.write(this.batchCmd) : ""    ; write next command in batch, if any
@@ -544,7 +569,7 @@ class cli {
             return
         }
         
-        sInput := Trim(sInput,OmitChars:="`r`n")
+        sInput := Trim(sInput, "`r`n")
         If (sInput = "") Or this.terminateBatch {
             this.lastCmd := "", this.batchCmd := "", this.terminateBatch := false, this.batchProgress := 0, this.batchCmdLines := 0
             Return
@@ -555,23 +580,10 @@ class cli {
             Sleep this.delay ; Ensure commands are not sent until initial prompt is complete, indicating CLI session is ready.
         
         cmdLines := this.shellCmdLines(sInput,&firstCmd,&batchCmd) ; ByRef firstCmd / ByRef batchCmd
-        this.lastCmd := firstCmd, this.batchCmd := batchCmd, this.cmdHistory .= firstCmd "`r`n" ; this.firstCmd := firstCmd
+        this.lastCmd := firstCmd, this.batchCmd := batchCmd, this.cmdHistory .= (this.cmdHistory?"`r`n":"") firstCmd ; this.firstCmd := firstCmd
         
-        androidRegEx := "i)^((.*[ ])?adb (-a |-d |-e |-s [a-zA-Z0-9]*|-t [0-9]+|-H |-P |-L [a-z0-9:_]*)?[ ]?shell)$"
-        If (RegExMatch(firstCmd,androidRegEx)) ; check shell change on-the-fly for ADB
-            this.shell := "android"
-        Else If (RegExMatch(firstCmd,"i)[ ]*exit[ ]*")) ; change back to windows on EXIT command
-            this.shell := "windows"
-        
+        ; androidRegEx := "i)^((.*[ ])?adb (-a |-d |-e |-s [a-zA-Z0-9]*|-t [0-9]+|-H |-P |-L [a-z0-9:_]*)?[ ]?shell)$"
         f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(firstCmd "`r`n"), f.close(), f := "" ; send cmd
-        
-        If (this.shell = "android" And !this.m) ; check shell
-            this.uWrite(this.checkShell()) ; ADB - appends missing prompt after data complete
-    }
-    uWrite(sInput:="") { ; INTERNAL, don't use - this prevents .write() from triggering itself
-        sInput := Trim(sInput,"`r`n")
-        If (sInput != "")
-            f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(sInput "`r`n"), f.close(), f := "" ; send cmd
     }
     KeySequence(sInput) {
         curSet := A_DetectHiddenWindows
@@ -605,13 +617,15 @@ class cli {
         If (!str)
             return ""
         
-        winRegEx     := "[\r\n]*((PS )?[A-Z]\:\\[^/?<>:*|" Chr(34) "]*>)$" ; orig: "[\n]?([A-Z]\:\\[^/?<>:*|``]*>)$"
-        netshRegEx   := "[\r\n]*(netsh[ a-z0-9]*\>)$"
-        androidRegEx := "[\r\n]*([\d]*\|?[\-_a-z0-9]+\:[^\r\n]+ (\#|\$)[ ]?)$"
-        sshRegEx     := "[\r\n]*([a-z][a-z0-9_\-]+\@?[\w_\-\.]*\:[^`r`n]*?[\#\$][ `t]*)$"
+        Static inv_path := "\/\?\<\>\:\*\|\" Chr(34) "\r\n\``"              ; invalid path chars
+        winRegEx     := "((?:\r\n)?(?:PS )?[A-Z]\:\\[^" inv_path "]*> *)$"  ; orig: "[\n]?([A-Z]\:\\[^/?<>:*|``]*>)$"
+        netshRegEx   := "((?:\r\n)?netsh[ a-z0-9]*\>)$"
+        ; androidRegEx := "((?:\r\n)?[\d]*\|?[a-z0-9_\-]+\:[^\r\n]+ (\#|\$)[ ]?)\r\n$"            ; has trailing `r`n due to manual ECHO cmd
+        sshRegEx     := "((?:\n)?[a-z][a-z0-9_\-]+\@?[\w_\-\.]*\:[^`r`n]*?[\#\$][ `t]*)$"     ; "user@PC:~/Dir/Path$ "
+        ps_part      := "((?:\r\n)?>> *)$" ; PowerShell partial expression prompt
         
-        If (this.shell = "windows" And RegExMatch(str,"\r\n>>$")) {
-            result := ">>"
+        If (this.shell = "windows" And RegExMatch(str,ps_part,&match)) {
+            result := match.Count ? match[1] : ""
         } Else If (RegExMatch(str,netshRegEx,&match)) {
             result := match.Count ? match[1] : ""
             If (chEnv)
@@ -620,10 +634,6 @@ class cli {
             result := match.Count ? match[1] : ""
             If (chEnv)
                 this.shell := "windows", this.shellMatch := match[1]
-        } Else If (RegExMatch(str,androidRegEx,&match)) {
-            result := match.Count ? match[1] : ""
-            If (chEnv)
-                this.shell := "android", this.shellMatch := match[1]
         } Else If (RegExMatch(str,sshRegEx,&match)) {
             result := match.Count ? match[1] : ""
             If (chEnv)
@@ -633,31 +643,31 @@ class cli {
         return result
     }
     GetLastLine(sInput:="") { ; get last line from any data chunk
-        sInput := sInput, lastLine := ""
+        lastLine := ""
         Loop Parse sInput, "`n", "`r"
             lastLine := A_LoopField
         return lastLine
     }
-    removePrompt(buf,lastLine) {
-        If (lastLine = "")
+    removePrompt(buf,prompt) {
+        If (prompt = "")
             return buf
         Else {
-            buf := RTrim(buf,"`r`n ")
             nextLine := this.GetLastLine(buf)
-            While (nextLine = lastLine) {
-                buf := RegExReplace(buf,"\Q" lastLine "\E$","")
+            While (Trim(nextLine,"`r`n") = Trim(prompt,"`r`n")) { ; below, "begin" captures any `r`n combo before prompt
+                begin := ((RegExMatch(prompt,"^([\r\n]+)",&match)) ? StrReplace(StrReplace(match[1],"`r","\r"),"`n","\n") : "")
+                buf := RegExReplace(buf, begin "\Q" Trim(prompt,"`r`n") "\E[ \r\n]*$","")
                 nextLine := this.GetLastLine(buf)
             }
             
-            return Trim(buf,"`r`n")
+            return buf
         }
     }
-    checkShell() {
-        If (this.shell = "android")
-            return "echo $HOSTNAME:$PWD ${PS1: -2}"
-        Else
-            return ""
-    }
+    ; checkShell() {
+        ; If (this.shell = "android")
+            ; return "echo $HOSTNAME:$PWD ${PS1: -2}"
+        ; Else
+            ; return ""
+    ; }
     shellCmdLines(str, &firstCmd, &batchCmd) {
         firstCmd := "", batchCmd := "", str := Trim(str," `t`r`n"), i := 0
         Loop Parse str, "`n", "`r"
@@ -679,7 +689,7 @@ class cli {
         r5 := "\x1B\[\??[\d]+\+?(h|l)|\x1B\[\!p"
         r6 := "\x1B\[\d+\;\d+(m|r|f)"
         r7 := "\x1B\[\?5(W|\;\d+W)"
-        r8 := "\x1B\]0\;[\w_\-\.\@ \:\~]+?\x07"
+        r8 := "\x1B\]0\;[^\x07]+\x07"
         
         allR := r1 "|" r2 "|" r3 "|" r4 "|" r5 "|" r6 "|" r7 "|" r8
         buf := RegExReplace(buf,allR,"")
@@ -689,3 +699,7 @@ class cli {
         return buf
     }
 }
+
+; dbg(in_str) {
+    ; OutputDebug "AHK: " in_str
+; }

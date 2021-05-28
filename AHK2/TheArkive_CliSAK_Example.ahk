@@ -1,4 +1,5 @@
-﻿; #Warn  ; Enable warnings to assist with detecting common errors.
+﻿; AHK v2
+; #Warn  ; Enable warnings to assist with detecting common errors.
 SendMode "Input"  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 
@@ -13,40 +14,40 @@ CmdGui()
 
 CmdGui() {
     Global oGui
-	oGui := Gui("+Resize","Console")
-	oGui.OnEvent("Close",CmdClose)
+    oGui := Gui("+Resize","Console")
+    oGui.OnEvent("Close",CmdClose)
     oGui.OnEvent("Size",CmdSize)
-	oGui.SetFont("s8","Courier New")
-	
-	oGui.Add("button","","Ex #1").OnEvent("Click",Example1)
-	oGui.Add("button","x+0","Ex #2").OnEvent("Click",Example2)
-	oGui.Add("button","x+0","Ex #3").OnEvent("Click",Example3)
-	oGui.Add("button","x+0","Ex #4").OnEvent("Click",Example4)
-	oGui.Add("button","x+0","Ex #5").OnEvent("Click",Example5)
-	oGui.Add("button","x+0","Ex #6").OnEvent("Click",Example6)
-	oGui.Add("button","x+0","Ex #7").OnEvent("Click",Example7)
-	oGui.Add("button","x+0","Ex #8").OnEvent("Click",Example8)
-	
-	oGui.Add("Button","x+20","Show Window").OnEvent("Click",ShowWindow)
-	oGui.Add("Button","x+0","Hide Window").OnEvent("Click",HideWindow)
+    oGui.SetFont("s8","Courier New")
+    
+    oGui.Add("button","","Ex #1").OnEvent("Click",Example1)
+    oGui.Add("button","x+0","Ex #2").OnEvent("Click",Example2)
+    oGui.Add("button","x+0","Ex #3").OnEvent("Click",Example3)
+    oGui.Add("button","x+0","Ex #4").OnEvent("Click",Example4)
+    oGui.Add("button","x+0","Ex #5").OnEvent("Click",Example5)
+    oGui.Add("button","x+0","Ex #6").OnEvent("Click",Example6)
+    oGui.Add("button","x+0","Ex #7").OnEvent("Click",Example7)
+    oGui.Add("button","x+0","Ex #8").OnEvent("Click",Example8)
+    
+    oGui.Add("Button","x+20","Show Window").OnEvent("Click",ShowWindow)
+    oGui.Add("Button","x+0","Hide Window").OnEvent("Click",HideWindow)
     oGui.Add("Button","x+0","Copy Selection").OnEvent("Click",copy)
-	
-	ctl := oGui.Add("Edit","vCmdOutput xm w800 h400 ReadOnly")
-	ctl := oGui.Add("Text","vCmdPrompt w800 y+0","Prompt>")
-	ctl := oGui.Add("Edit","vCmdInput w800 y+0 r3")
-		
-	oGui.Show()
-	oGui["CmdInput"].Focus()
+    
+    ctl := oGui.Add("Edit","vCmdOutput xm w800 h400 ReadOnly")
+    ctl := oGui.Add("Text","vCmdPrompt w800 y+0","Prompt>")
+    ctl := oGui.Add("Edit","vCmdInput w800 y+0 r3")
+        
+    oGui.Show()
+    oGui["CmdInput"].Focus()
 }
 
 ShowWindow(oCtl,Info) {
     Global c
-	WinShow "ahk_pid " c.pid
+    WinShow "ahk_pid " c.pid
 }
 
 HideWindow(oCtl,Info) {
     Global c
-	WinHide "ahk_pid " c.pid
+    WinHide "ahk_pid " c.pid
 }
 
 copy(oCtl,info) {
@@ -55,45 +56,46 @@ copy(oCtl,info) {
 }
 
 CmdSize(o, MinMax, Width, Height) {
-	h1 := Height - 10 - 103, w1 := Width - 20
-	o["CmdOutput"].Move(,,w1,h1)
-	
-	y2 := Height - 75, w2 := Width - 20
-	o["CmdPrompt"].Move(,y2,w2)
-	
-	y3 := Height - 55, w3 := Width - 20
-	o["CmdInput"].Move(,y3,w3)
+    h1 := Height - 10 - 103, w1 := Width - 20
+    o["CmdOutput"].Move(,,w1,h1)
+    
+    y2 := Height - 75, w2 := Width - 20
+    o["CmdPrompt"].Move(,y2,w2)
+    
+    y3 := Height - 55, w3 := Width - 20
+    o["CmdInput"].Move(,y3,w3)
 }
 
 CmdClose(o) {
     Global c
-	If (IsObject(c))
-		c.close()
-	ExitApp
+    If (IsObject(c))
+        c.close()
+    ExitApp
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example1(oCtl,Info) { ; simple example
     Global oGui, c
-	If (IsObject(c))
-		c.close(), c:=""
-	oGui["CmdOutput"].Value := ""
-	
-	output := CliData("dir") ; CliData() easy wrapper, no fuss, no muss
-	AppendText(oGui["CmdOutput"].hwnd,output)
+    If (IsObject(c))
+        c.close(), c:=""
+    oGui["CmdOutput"].Value := ""
+    
+    output := CliData("dir") ; CliData() easy wrapper, no fuss, no muss
+    AppendText(oGui["CmdOutput"].hwnd,output)
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example2(oCtl,Info) { ; simple example, short delay
     Global oGui, c
-	If (IsObject(c))
-		c.close(), c:=""
-	oGui["CmdOutput"].Value := ""
-	
-	output := CliData("dir " Chr(34) A_WinDir "\System32" Chr(34))
-	AppendText(oGui["CmdOutput"].hwnd,output)
+    If (IsObject(c))
+        c.close(), c:=""
+    oGui["CmdOutput"].Value := ""
+    
+    output := CliData("dir " Chr(34) A_WinDir "\System32" Chr(34))
+    
+    AppendText(oGui["CmdOutput"].hwnd,output)
     MsgBox "There was a delay because there was lots of data, but now it's done."
 }
 ; ============================================================================
@@ -101,81 +103,71 @@ Example2(oCtl,Info) { ; simple example, short delay
 ; ============================================================================
 Example3(oCtl,Info) { ; streaming example
     Global oGui, c
-	If (IsObject(c))
-		c.close(), c := ""
-	oGui["CmdOutput"].Value := ""
-	
-    cmd := "ECHO This is a simple interactive prompt. & "
-         . "ECHO. & ECHO The current directory is visible below. & "
-         . "ECHO. & ECHO This output box is cleared in preparation for the output of each command. & "
-         . "ECHO. & ECHO This is useful for running a batch of commands to collect output in a single session, instead of creating and destroying the CLI session for every command. & "
-         . "ECHO. & ECHO If you don't need to track errors in realtime, it is even more efficient to run a single batch file and collect output that way."
+    If (IsObject(c))
+        c.close(), c := ""
+    oGui["CmdOutput"].Value := ""
     
-	c := cli(cmd,"ID:Console_Simple","cmd","/K") ; Only using PromptCallback()
+    cmd := "dir C:\Windows\System32"
+    
+    c := cli(cmd,"ID:Console_Simple","cmd")
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
-Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands, and QuitString
+Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands
     Global oGui, c
-	If (IsObject(c))
-		c.close(), c:=""
-	oGui["CmdOutput"].Value := ""
-	
-	batch := "ECHO. & dir " Chr(34) A_WinDir "\System32" Chr(34) "`r`n" ; multi-line commands
-		   . "ECHO. & ping 127.0.0.1`r`n"
-		   . "ECHO. & ECHO This is an interactive prompt using full streaming, instead of just waiting for the prompt. & "
-           . "ECHO. & ECHO "
-	
-	; Mode "r" removes prompt and command from data, so only output is visible.
-	c := cli(batch,"mode:r|ID:Console_Streaming") ; Only using StdOutCallback()
+    If (IsObject(c))                ; To take full advantage of this example you will
+        c.close(), c:=""            ; need access to an ssh server, and/or an ADB setup
+    oGui["CmdOutput"].Value := ""   ; and an android phone.
+    
+    batch := "ECHO. & ECHO This is an interactive prompt using streaming mode, instead of just waiting for the prompt (like #3).`r`n"
+           . "ECHO. & ECHO But in this example, you can experiment with SSH (plink in particular) and ADB (Android Debug Bridge).`r`n"
+           . "ECHO. & ECHO When using ADB, you will not get a prompt signal.  To work around this, use the form:  'ADB SHELL cmd params' and then the command will exit to the windows prompt.`r`n"
+           . "ECHO. & ECHO It is important to note that 'prompt signals' are the internal driving mechanism for smoothly executing batch comamnds.`r`n"
+           . "ECHO. & ECHO If you use a shell environment that doesn't return a prompt to stdout (like ADB) then you need to be extra creative to manage it."
+    
+    c := cli(batch,"ID:Console_Streaming|mode:f") ; mode f = filter control codes from SSH and older ADB shell sessions.
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example5(oCtl,Info) { ; CTRL+C and CTRL+Break examples ; if you need to copy, disable CTRL+C (^c) hotkey below
     Global oGui, c
-	If (IsObject(c))
-		c.close(), c:=""
-	oGui["CmdOutput"].Value := ""
-	
-	MsgBox "Use CTRL+B for CTRL+Break and CTRL+C during this batch to interrupt the running commands.`r`n`r`n"
+    If (IsObject(c))
+        c.close(), c:=""
+    oGui["CmdOutput"].Value := ""
+    
+    MsgBox "Use CTRL+B for CTRL+Break and CTRL+C during this batch to interrupt the running commands.`r`n`r`n"
          . "CTRL+Break and CTRL+C will do different things depending on each command."
     
-	cmd := "ping 127.0.0.1 & ping 127.0.0.1`r`n"
+    cmd := "ping 127.0.0.1`r`n"
+         . "ping 127.0.0.1`r`n"
          . "ECHO. & ECHO The session is still active."
-	c := cli(cmd,"ID:Console_Streaming") ; Only using StdOutCallback()
+    c := cli(cmd,"ID:Console_Streaming")
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example6(oCtl,Info) { ; stderr example
-    Global oGui, c
-	If (IsObject(c))
-		c.close(), c:=""
-	oGui["CmdOutput"].Value := ""
-	
-	c := cli("dir poof","mode:xr|ID:error",,"/Q /K") ; blank param is "cmd" by default
+    Global oGui, c                          ; It is best to check .stderr in the PromptCallback()
+    If (IsObject(c))                        ; function.  PromptCallback() fires after each command
+        c.close(), c:=""                    ; completes, so it is easy to check errors in
+    oGui["CmdOutput"].Value := ""           ; conjunction with the output of each command.
     
-	; Mode "x" separates StdErr from StdOut.
-    ; Mode "r" removes prompt and command from output.
-    
-    ; It is best to check .stderr in the PromptCallback() function.  PromptCallback() fires after each
-    ; command completes, so it is easy to check errors in conjunction with the output of each command.
+    c := cli("dir poof","mode:x|ID:error")  ; Mode "x" separates StdErr from StdOut.
 }
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
 Example7(oCtl,Info) {
     Global oGui, c
-	If (IsObject(c))
-		c.close(), c:="" ; delete object and clear previous instance
-	oGui["CmdOutput"].Value := "This is an interactive console.`r`n`r`n"
-	
-    c := cli("","mode:rx|ID:PowerShell","powershell")
+    If (IsObject(c))
+        c.close(), c:="" ; delete object and clear previous instance
+    oGui["CmdOutput"].Value := "This is an interactive console.`r`n`r`n"
     
-	; Mode "r" removes the prompt from StdOut.
-	; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
+    c := cli("","mode:x|ID:PowerShell","powershell")
+    
+    ; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
     ;          Use mode "f" with plink (from the pUTTY suite) in this example.
     ;              Putty: https://putty.org/
     ;          This example also works well with Android Debug Bridge (ADB - for android phones).
@@ -189,47 +181,47 @@ Example7(oCtl,Info) {
 ; ============================================================================
 Example8(oCtl,Info) { ; mode "m" example
     Global oGui, c
-	If (IsObject(c))
-		c.close(), c:="" ; close previous instance first.
-	
+    If (IsObject(c))
+        c.close(), c:="" ; close previous instance first.
+    
     If !FileExist("wget.exe") {
         Msgbox "This example requires wget.  Please see the comments in example 8."
         return
     }
     
-	; ========================================================================================
+    ; ========================================================================================
     ; wget.exe example:
     ; ========================================================================================
-	; 1) download wget.exe from https://eternallybored.org/misc/wget/
-	; 2) unzip it in the same folder as this script
-	; ========================================================================================
-	; The file downloaded in this example is the Windows Android SDK (the medium version).
-	; Home Page:   https://developer.android.com/studio/releases/platform-tools
-	;
-	; In this wget.exe example, you can isolate the incrementing percent and incorporate the
+    ; 1) download wget.exe from https://eternallybored.org/misc/wget/
+    ; 2) unzip it in the same folder as this script
+    ; ========================================================================================
+    ; The file downloaded in this example is the Windows Android SDK (the medium version).
+    ; Home Page:   https://developer.android.com/studio/releases/platform-tools
+    ;
+    ; In this wget.exe example, you can isolate the incrementing percent and incorporate the
     ; text animation as part of your GUI.
     ;
     ; You will want to use the StdOutCallback() function to capture the animation in realtime,
     ; and then you will want to use the PromptCallback() function to detect when the operation
     ; is complete.
-	; ========================================================================================
-	
-    cmd := "wget https://dl.google.com/android/repository/commandlinetools-win-6609375_latest.zip" ; big version
-	; cmd := "wget https://dl.google.com/android/repository/platform-tools-latest-windows.zip" ; small version
+    ; ========================================================================================
     
-	; ========================================================================================
-	; Using 1 row may have unwanted side effects.  The last printed line may overwrite the
-	; previous line. If the previous line is longer than the last line, then you may see
-	; the remenants of the previous line.
-	; ========================================================================================
-	
-	c := cli(cmd,"mode:m(150,10)r|ID:mode_M|showWindow:1") ; console size = 150 columns / 10 rows
+    cmd := "wget https://dl.google.com/android/repository/commandlinetools-win-6609375_latest.zip" ; big version
+    ; cmd := "wget https://dl.google.com/android/repository/platform-tools-latest-windows.zip" ; small version
+    
+    ; ========================================================================================
+    ; Using 1 row may have unwanted side effects.  The last printed line may overwrite the
+    ; previous line. If the previous line is longer than the last line, then you may see
+    ; the remenants of the previous line.
+    ; ========================================================================================
+    
+    c := cli(cmd,"mode:m(150,10)r|ID:mode_M|showWindow:1") ; console size = 150 columns / 10 rows
 }
 
 ; ============================================================================
 ; Callback Functions
 ; ============================================================================
-QuitCallback(quitStr,ID,cliObj) { ; stream until user-defined QuitString is encountered (optional).
+QuitCallback(quitStr,ID,cliObj) { ; no example showing this for now...
     Global oGui
     If (ID = "ModeM")
         oGui["CmdOutput"].Value := "Download Complete"
@@ -241,9 +233,7 @@ QuitCallback(quitStr,ID,cliObj) { ; stream until user-defined QuitString is enco
 StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
     Global oGui
     If (ID = "Console_Streaming" Or ID = "Console_Simple") {
-        If (oGui["CmdOutput"].Value = "")
-            AppendText(oGui["CmdOutput"].hwnd,data) ; append data to edit box
-        Else AppendText(oGui["CmdOutput"].hwnd,"`r`n" data)
+        AppendText(oGui["CmdOutput"].hwnd, data)
     } Else If (ID = "mode_M") {                                 ; >>> mode "m" example capturing incrementing percent
         lastLine := cliObj.GetLastLine(data)
         b1 := InStr(lastLine,"["), b2 := InStr(lastLine,"]") ; brackets surrounding the progress bar
@@ -273,23 +263,24 @@ StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
 
 PromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: PromptCallback()
     Global oGui
-	oGui["CmdPrompt"].Text := prompt ; echo prompt to text control in GUI
+    oGui["CmdPrompt"].Text := prompt                            ; echo prompt to text control in GUI
     
-    If (ID = "Console_Simple") {                                ; >>> simple console example
-        oGui["CmdOutput"].Value := cliObj.stdout
-        cliObj.stdout := "" ; clear StdOut/StdErr for a proper interactive console.
+    If (ID = "Console_Streaming") {
+        cliObj.stdout := ""
+    } Else If (ID = "Console_Simple") {                         ; >>> simple console example
+        cliObj.stdout := ""                                     ; clear StdOut/StdErr for a proper interactive console.
     } Else If (ID = "error" And cliObj.Ready) {
         stdOut := ">>> StdOut:`r`n" RTrim(cliObj.stdout,"`r`n`t") "`r`n`r`n"
         stdErr := ">>> StdErr:`r`n" RTrim(cliObj.stderr,"`r`n`t") "`r`n`r`n"
         oGui["CmdOutput"].Value := stdOut stdErr
         cliobj.stdOut := "", cliobj.stdErr := ""
     } Else If (ID = "PowerShell") {                             ; >>> more complex interactive console example
-        txt := ((cliobj.lastCmd) ? " " cliobj.lastCmd "`r`n`r`n" : "") ; reconstruct output similar to normal console
-             . ((cliobj.stdout) ? cliobj.stdout "`r`n`r`n" : "")
-             . ((cliobj.stderr) ? cliobj.stderr "`r`n`r`n" : "")
-             . prompt
-        AppendText(oGui["CmdOutput"].hwnd,txt)
+        err := cliObj.stderr
+        out := cliObj.clean_lines(cliObj.stdout)
+        AppendText(oGui["CmdOutput"].hwnd,"`r`n`r`n" (err?err:"") out)
+        
         cliObj.stdout := "", cliObj.stderr := "" ; clear StdOut/StdErr for a proper interactive console.
+        
     } Else If (ID = "mode_M")                                   ; >>> mode "m" example capturing incrementing percent
         oGui["CmdOutput"].Value := "Download complete."
 }
@@ -302,16 +293,17 @@ WM_KEYDOWN(wParam, lParam, msg, hwnd) { ; wParam = keycode in decimal | 13 = Ent
     Global oGui
     CtrlHwnd := "0x" Format("{:x}",hwnd) ; control hwnd formatted to match +HwndVarName
     If (CtrlHwnd = oGui["CmdInput"].hwnd And wParam = 13) ; ENTER in App List Filter
-		SetTimer SendCmd, -10 ; this ensures cmd is sent and control is cleared
+        SetTimer SendCmd, -10 ; this ensures cmd is sent and control is cleared
 }
 
-SendCmd() { ; timer label from WM_KEYDOWN	
-    Global oGui
-	CmdInput := oGui["CmdInput"].Value
-	c.write(CmdInput) ; send cmd
-	
-	oGui["CmdInput"].Value := ""
-	oGui["CmdInput"].Focus()
+SendCmd() { ; timer label from WM_KEYDOWN    
+    Global oGui, c
+    CmdInput := oGui["CmdInput"].Value
+    
+    c.write(CmdInput)
+    
+    oGui["CmdInput"].Value := ""
+    oGui["CmdInput"].Focus()
 }
 
 ; ================================================================================
@@ -327,12 +319,12 @@ SendCmd() { ; timer label from WM_KEYDOWN
 ; https://autohotkey.com/board/topic/52441-append-text-to-an-edit-control/#entry328342
 ; ================================================================================
 AppendText(hEdit, sInput, loc:="bottom") {
-    txtLen := SendMessage(0x000E, 0, 0,, "ahk_id " hEdit)		;WM_GETTEXTLENGTH
-	If (loc = "bottom")
-		SendMessage 0x00B1, txtLen, txtLen,, "ahk_id " hEdit	;EM_SETSEL
-	Else If (loc = "top")
-		SendMessage 0x00B1, 0, 0,, "ahk_id " hEdit
-    SendMessage 0x00C2, False, StrPtr(sInput),, "ahk_id " hEdit		;EM_REPLACESEL
+    txtLen := SendMessage(0x000E, 0, 0,, "ahk_id " hEdit)        ;WM_GETTEXTLENGTH
+    If (loc = "bottom")
+        SendMessage 0x00B1, txtLen, txtLen,, "ahk_id " hEdit    ;EM_SETSEL
+    Else If (loc = "top")
+        SendMessage 0x00B1, 0, 0,, "ahk_id " hEdit
+    SendMessage 0x00C2, False, StrPtr(sInput),, "ahk_id " hEdit        ;EM_REPLACESEL
 }
 
 ; ================================================================================
@@ -343,5 +335,5 @@ AppendText(hEdit, sInput, loc:="bottom") {
 ^c::c.KeySequence("^c")
 ^CtrlBreak::c.KeySequence("^{CtrlBreak}")
 ^b::c.KeySequence("^{CtrlBreak}")   ; in case user doesn't have BREAK key
-^x::c.close()				        ; closes active CLi instance if idle
+^x::c.close()                        ; closes active CLi instance if idle
 ^d::c.KeySequence("^d")
