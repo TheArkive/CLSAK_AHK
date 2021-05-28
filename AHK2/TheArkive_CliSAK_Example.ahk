@@ -10,6 +10,7 @@ SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 Global oGui, c:="", CmdOutput, CmdPrompt, CmdInput, cli_session
 Global done := "__Batch Complete__"
 
+
 CmdGui()
 
 CmdGui() {
@@ -107,7 +108,9 @@ Example3(oCtl,Info) { ; streaming example
         c.close(), c := ""
     oGui["CmdOutput"].Value := ""
     
-    cmd := "dir C:\Windows\System32"
+    cmd := "dir C:\Windows\System32`r`n"
+         . "ECHO. & ECHO This is similar to Example #2, except the output was streaming in realtime.`r`n"
+         . "ECHO. & ECHO This session is still active."
     
     c := cli(cmd,"ID:Console_Simple","cmd")
 }
@@ -120,14 +123,12 @@ Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands
         c.close(), c:=""            ; need access to an ssh server, and/or an ADB setup
     oGui["CmdOutput"].Value := ""   ; and an android phone.
     
-    batch := "ECHO. & ECHO This is an interactive prompt using streaming mode, instead of just waiting for the prompt (like #3).`r`n"
+    batch := "ECHO. & ECHO This is an interactive prompt using streaming mode, like Example #3.`r`n"
            . "ECHO. & ECHO But in this example, you can experiment with SSH (plink in particular) and ADB (Android Debug Bridge).`r`n"
-           . "ECHO. & ECHO When using ADB, you will not get a prompt signal.  To work around this, use the form:  'ADB SHELL cmd params' and then the command will exit to the windows prompt.`r`n"
-           . "ECHO. & ECHO It is important to note that 'prompt signals' are the internal driving mechanism for smoothly executing batch comamnds.`r`n"
-           . "ECHO. & ECHO If you use a shell environment that doesn't return a prompt to stdout (like ADB) then you need to be extra creative to manage it."
     
     c := cli(batch,"ID:Console_Streaming|mode:f") ; mode f = filter control codes from SSH and older ADB shell sessions.
 }
+
 ; ============================================================================
 ; ============================================================================
 ; ============================================================================
@@ -163,9 +164,19 @@ Example7(oCtl,Info) {
     Global oGui, c
     If (IsObject(c))
         c.close(), c:="" ; delete object and clear previous instance
-    oGui["CmdOutput"].Value := "This is an interactive console.`r`n`r`n"
+    oGui["CmdOutput"].Value := "This is an interactive Powershell console.`r`n`r`n"
     
-    c := cli("","mode:x|ID:PowerShell","powershell")
+    cmd := "ECHO 'This is an interactive PowerShell console.'`r`n"
+         . "ECHO ''`r`n"
+         . "ECHO 'If you try to use the >> prompt to enter a multi-line statement then you need to end by sending a space as a separate command to get the prompt to return.'`r`n"
+         . "ECHO ''`r`n"
+         . "ECHO 'Try the following sequence:'`r`n"
+         . "ECHO '-> 5+ {ENTER}'`r`n"
+         . "ECHO '-> 5  {ENTER}'`r`n"
+         . "ECHO '-> {SPACE} {ENTER}'`r`n"
+         . "ECHO '   You should see the result 10 afterward.'"
+    
+    c := cli(cmd,"mode:x|ID:PowerShell","powershell")
     
     ; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
     ;          Use mode "f" with plink (from the pUTTY suite) in this example.
@@ -277,7 +288,8 @@ PromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: Pr
     } Else If (ID = "PowerShell") {                             ; >>> more complex interactive console example
         err := cliObj.stderr
         out := cliObj.clean_lines(cliObj.stdout)
-        AppendText(oGui["CmdOutput"].hwnd,"`r`n`r`n" (err?err:"") out)
+        out .= (InStr(prompt,">>")?"`r`n>>":"") ; append >> to output edit when that prompt is used
+        AppendText(oGui["CmdOutput"].hwnd, "`r`n" (err?err:"") out)
         
         cliObj.stdout := "", cliObj.stderr := "" ; clear StdOut/StdErr for a proper interactive console.
         

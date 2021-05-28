@@ -264,6 +264,17 @@
 ;       This is most useful for filtering out the first prmopt event when using the prompt callback
 ;       function.
 ;
+;   Cliobj.shell
+;       Returns the currently detected shell (so far as my regex can detect).  This is useful when
+;       typing a command to load a shell within a shell, and trying to deal with certain quirks unique
+;       to a specific shell environment.
+;
+;       Currently supported shell environments:
+;           - Windows
+;           - netsh
+;           - ADB
+;           - SSH
+;
 ;   CLIobj.stderr
 ;       This is the full output of StdErr during the session.  You can check or clear this value.
 ;
@@ -403,6 +414,10 @@ class cli {
         (!this.m) ? NumPut("Ptr", hStdOutWr, si, (p=4)?60:88) : ""      ; stdOut handle
         NumPut("Ptr", InStr(this.mode,"x") ? hStdErrWr : hStdOutWr, si, (p=4)?64:96)    ; stdErr handle (only on mode "x", otherwise use stdout handle)
         
+        s := "i)^((.*)?adb(.exe)?([ ].*)?[ ]shell)$"
+        If (r := RegExMatch(this.env,s))
+            this.shell := "android"
+        
         r := DllCall("CreateProcess"
             , "Str", this.env, "Str", this.params
             , "Uint", 0, "Uint", 0          ; process/thread attributes
@@ -418,7 +433,7 @@ class cli {
             this.hProc := NumGet(pi,0,"UPtr"), this.hThread := NumGet(pi,p,"UPtr")            ; get Process handle and Thread handle
             
             while (result := !DllCall("AttachConsole", "UInt", this.pID) And ProcessExist(this.pID))    ; retry attach console until success
-                Sleep 10                                                                               ; if PID exists - cmd may have returned already
+                Sleep 10                                                                                ; if PID exists - cmd may have returned already
             
             r1 := DllCall("CloseHandle","Ptr",hStdInRd) ; handles not needed, inherited by the process
             If (!this.m) {
@@ -431,6 +446,9 @@ class cli {
                 DllCall("CloseHandle","Ptr",hStdErrWr)
                 this.fStdErr := FileOpen(this.hStdErr, "h", this.codepage)
             }
+            
+            If (this.shell = "android" And !this.m) ; specific CLI shell fixes
+                this.uWrite(this.checkShell())
             
             stream := this.stream, delay := this.delay, this.wait() ; wait for buffer to have data, default = 300 ms
             
@@ -497,8 +515,8 @@ class cli {
         Try cbQuit := (Type(%this.QuitCallback%) != "String") ? %this.QuitCallback% : false
         Try cbStdOut := (Type(%this.StdOutCallback%) != "String") ? %this.StdOutCallback% : false
         
-        buf := (!this.m) ? this.fStdOut.read() : this.mGet() ; check StdOut buffer
-        this.getStdErr()                                        ; check StdErr buffer
+        buf := (!this.m) ? this.fStdOut.read() : this.mGet()    ; check StdOut buffer
+        this.getStdErr()                                        ; check StdErr buffer (only applies on mode "x")
         
         fullEOF := (!this.m) ? this.fStdOut.AtEOF : 1 ; check EOF, in mode "m" this is always 1 (because StdOut is grid, not a stream)
         if (InStr(this.mode,"x"))
@@ -582,8 +600,19 @@ class cli {
         cmdLines := this.shellCmdLines(sInput,&firstCmd,&batchCmd) ; ByRef firstCmd / ByRef batchCmd
         this.lastCmd := firstCmd, this.batchCmd := batchCmd, this.cmdHistory .= (this.cmdHistory?"`r`n":"") firstCmd ; this.firstCmd := firstCmd
         
-        ; androidRegEx := "i)^((.*[ ])?adb (-a |-d |-e |-s [a-zA-Z0-9]*|-t [0-9]+|-H |-P |-L [a-z0-9:_]*)?[ ]?shell)$"
+        androidRegEx := "i)^((.*[ ])?adb (-a |-d |-e |-s [a-zA-Z0-9]*|-t [0-9]+|-H |-P |-L [a-z0-9:_]*)?[ ]?shell)$"
+        If (RegExMatch(firstCmd,androidRegEx)) ; check shell change on-the-fly for ADB
+            this.shell := "android"
+        
         f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(firstCmd "`r`n"), f.close(), f := "" ; send cmd
+        
+        If (this.shell = "android" And !this.m) ; check shell
+            this.uWrite(this.checkShell()) ; ADB - appends missing prompt after data complete
+    }
+    uWrite(sInput:="") { ; INTERNAL, don't use - this prevents .write() from triggering itself
+        sInput := Trim(sInput,"`r`n")
+        If (sInput != "")
+            f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(sInput "`r`n"), f.close(), f := "" ; send cmd
     }
     KeySequence(sInput) {
         curSet := A_DetectHiddenWindows
@@ -620,7 +649,7 @@ class cli {
         Static inv_path := "\/\?\<\>\:\*\|\" Chr(34) "\r\n\``"              ; invalid path chars
         winRegEx     := "((?:\r\n)?(?:PS )?[A-Z]\:\\[^" inv_path "]*> *)$"  ; orig: "[\n]?([A-Z]\:\\[^/?<>:*|``]*>)$"
         netshRegEx   := "((?:\r\n)?netsh[ a-z0-9]*\>)$"
-        ; androidRegEx := "((?:\r\n)?[\d]*\|?[a-z0-9_\-]+\:[^\r\n]+ (\#|\$)[ ]?)\r\n$"            ; has trailing `r`n due to manual ECHO cmd
+        androidRegEx := "((?:\r\n)?[\d]*\|?[a-z0-9_\-]+\:[^\r\n]+ (\#|\$)[ ]?)\r\n$"            ; has trailing `r`n due to manual ECHO cmd
         sshRegEx     := "((?:\n)?[a-z][a-z0-9_\-]+\@?[\w_\-\.]*\:[^`r`n]*?[\#\$][ `t]*)$"     ; "user@PC:~/Dir/Path$ "
         ps_part      := "((?:\r\n)?>> *)$" ; PowerShell partial expression prompt
         
@@ -634,6 +663,10 @@ class cli {
             result := match.Count ? match[1] : ""
             If (chEnv)
                 this.shell := "windows", this.shellMatch := match[1]
+        } Else If (RegExMatch(str,androidRegEx,&match)) {
+            result := match.Count ? match[1] : ""
+            If (chEnv)
+                this.shell := "android", this.shellMatch := match[1]
         } Else If (RegExMatch(str,sshRegEx,&match)) {
             result := match.Count ? match[1] : ""
             If (chEnv)
@@ -644,7 +677,7 @@ class cli {
     }
     GetLastLine(sInput:="") { ; get last line from any data chunk
         lastLine := ""
-        Loop Parse sInput, "`n", "`r"
+        Loop Parse RTrim(sInput,"`r`n"), "`n", "`r"
             lastLine := A_LoopField
         return lastLine
     }
@@ -662,12 +695,12 @@ class cli {
             return buf
         }
     }
-    ; checkShell() {
-        ; If (this.shell = "android")
-            ; return "echo $HOSTNAME:$PWD ${PS1: -2}"
-        ; Else
-            ; return ""
-    ; }
+    checkShell() {
+        If (this.shell = "android")
+            return "echo $HOSTNAME:$PWD ${PS1: -2} 1>&2"
+        Else
+            return ""
+    }
     shellCmdLines(str, &firstCmd, &batchCmd) {
         firstCmd := "", batchCmd := "", str := Trim(str," `t`r`n"), i := 0
         Loop Parse str, "`n", "`r"
@@ -702,4 +735,15 @@ class cli {
 
 ; dbg(in_str) {
     ; OutputDebug "AHK: " in_str
+; }
+
+; StdIn(close:=false) {
+    ; Static f := FileOpen("*", "r")
+    
+    ; If (close) {
+        ; f.Close()
+        ; return
+    ; }
+    
+    ; return (!f.AtEOF) ? f.Read() : ""
 ; }
