@@ -3,8 +3,6 @@
 SendMode "Input"  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir A_ScriptDir  ; Ensures a consistent starting directory.
 
-; #INCLUDE %A_ScriptDir%
-#INCLUDE "*i TheArkive_Debug.ahk"
 #INCLUDE TheArkive_CliSAK.ahk
 
 Global oGui, c:="", CmdOutput, CmdPrompt, CmdInput, cli_session

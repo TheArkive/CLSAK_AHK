@@ -227,17 +227,19 @@ Example8() { ; mode "m" example
 ; Callback Functions
 ; ============================================================================
 quit_cb(quitStr,ID,cliObj) { ; stream until user-defined QuitString is encountered (optional).
-    If (ID = "ModeM")
+    If (ID = "Mode_M")
         GuiControl, , %CmdOutputHwnd%, Download Complete.
     MsgBox % "QuitString encountered:`r`n`t" quitStr "`r`n`r`nWhatever you choose to do in this callback functions will be done."
 }
 
 stdout_cb(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
-    ; dbg("    data: " data)
+    dbg("    data: " data)
     
 	If (ID = "Console_Streaming" Or ID = "Console_Simple") 
 		AppendText(CmdOutputHwnd,data) ; append data to edit box
-	Else If (ID = "modeM") {
+	Else If (ID = "mode_M") {
+        dbg("mode_M")
+        
         lastLine := cliObj.GetLastLine(data) ; capture last line containing progress bar and percent.
         a := StrSplit(lastLine,"["), p1 := a[1], a := StrSplit(p1," "), p2 := a[a.Length()]
         msg := "========================================================`r`n"
