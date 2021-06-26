@@ -1,4 +1,6 @@
 ﻿; AHK v1 
+; =================================================
+; =================================================
 #NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
@@ -35,6 +37,8 @@ CmdGui() {
 }
 
 ShowWindow() {
+    ; InputBox, pid
+    ; WinShow, % "ahk_pid " pid
 	WinShow, % "ahk_pid " c.pid
 }
 
@@ -64,7 +68,8 @@ Example1() { ; simple example
 		c.close(), c:=""
 	GuiControl, , CmdOutput
     
-    output := CliData("cmd /C dir") ; CliData() easy wrapper, no fuss, no muss
+    output := CliData("dir") ; CliData() easy wrapper, no fuss, no muss
+    
 	AppendText(CmdOutputHwnd,output)
 }
 ; ============================================================================
@@ -75,9 +80,11 @@ Example2() { ; simple example, short delay
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
-    output := CliData("cmd /C dir C:\Windows\System32") ; CliData() easy wrapper, no fuss, no muss
+    output := CliData("dir C:\Windows\System32") ; CliData() easy wrapper, no fuss, no muss
 	AppendText(CmdOutputHwnd,output)
-    MsgBox % "There was a delay because there was lots of data, but now it's done."
+    MsgBox % "There was a delay because there was lots of data.`r`n`r`n"
+         . "The GUI also stopped responding for a short time.  This is normal when using the wrapper function.`r`n`r`n"
+         . "It is best to only use the CliData() wrapper function when the expected command duration is short."
 }
 ; ============================================================================
 ; ============================================================================
@@ -87,12 +94,12 @@ Example3() { ; streaming example, with QuitString
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
-    cmd := "cmd /K dir C:\windows\System32`r`n"
-         . "ECHO " done ; "done" is set as global above
+    cmd := "dir C:\Windows\System32`r`n"
+         . "ECHO. & ECHO This is similar to Example #2, except the output was streaming in realtime.`r`n"
+         . "ECHO. & ECHO This session is just spitting out everything it sees from stdout.`r`n"
+         . "ECHO. & ECHO This session is still active."
     
-    ; The "done" var in this case is used as a user-defined "signal".  The "QuitString" will
-    ; quit the CLI session automatically when the QuitString is encountered in StdOut.
-	c := new cli(cmd,"mode:so|ID:Console|QuitString:" done)
+    c := new cli(cmd,"ID:Console_Simple|StdoutCallback:stdout_cb","cmd")
 }
 ; ============================================================================
 ; ============================================================================
@@ -102,18 +109,10 @@ Example4() { ; batch example, pass multi-line var for batch commands, and QuitSt
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
-	; In batch mode, every line must be a command you can run in cmd window.
-	; You can concatenate commands on a single line with "&", "&&", "||",
-    ; depending on what shell you are using.
-	; Check the help docs for the shell you are using.
-	batch := "cmd /Q /K ECHO. & dir C:\Windows\System32`r`n"
-		   . "ECHO. & cd..`r`n" ; ECHO. addes a new blank line before executing the command.
-		   . "ECHO. & dir`r`n"
-		   . "ECHO. & ping 127.0.0.1`r`n"
-		   . "ECHO. & echo " done ; "done" is set as global above
-	
-	; remove mode "r" below to see the prompt in data
-	c := new cli(batch,"mode:sor|ID:Console|QuitString:" done)
+	batch := "ECHO This is an interactive prompt using streaming mode, like Example #3.`r`n"
+           . "ECHO. & ECHO But in this example, you can experiment with SSH (plink in particular) and ADB (Android Debug Bridge).`r`n"
+    
+    c := new cli(batch,"ID:Console_Streaming|mode:f|StdoutCallback:stdout_cb") ; mode f = filter control codes from SSH and older ADB shell sessions.
 }
 ; ============================================================================
 ; ============================================================================
@@ -123,10 +122,13 @@ Example5() { ; CTRL+C and CTRL+Break examples ; if you need to copy, disable CTR
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
-    MsgBox % "User CTRL+B for CTRL+Break.  Also press CTRL+C during this batch."
+    MsgBox % "Use CTRL+B for CTRL+Break and CTRL+C during this batch to interrupt the running commands.`r`n`r`n"
+         . "CTRL+Break and CTRL+C will do different things depending on each command."
     
-	cmd := "cmd /K ping 127.0.0.1 & ping 127.0.0.1" ; mode "o" uses the StdOut callback function
-	c := new cli(cmd,"mode:so|ID:Console")          ; mode "s" is streaming, so constant data collection
+    cmd := "ping 127.0.0.1`r`n"
+         . "ping 127.0.0.1`r`n"
+         . "ECHO. & ECHO The session is still active."
+    c := new cli(cmd,"ID:Console_Streaming|StdoutCallback:stdout_cb")
 }
 ; ============================================================================
 ; ============================================================================
@@ -136,27 +138,9 @@ Example6() { ; stderr example
 		c.close(), c:=""
 	GuiControl, , CmdOutput
 	
-	c := new cli("cmd /C dir poof","mode:x") ; <=== mode "w" implied, no other primary modes.
+	c := new cli("dir poof","mode:x|ID:error|StdoutCallback:stdout_cb|PromptCallback:prompt_cb")  ; Mode "x" separates StdErr from StdOut.
     
-	; You can easily direct stdout / stderr to callback with modes "o" and "e".
-    ; Separating StdErr with a single command is manageable.
-	stdOut := "===========================`r`n"
-			. "StdOut:`r`n"
-			. c.stdout "`r`n"
-			. "===========================`r`n"
-	stdErr := "===========================`r`n"
-			. "StdErr:`r`n"
-			. c.stderr "`r`n"
-			. "===========================`r`n"
-	AppendText(CmdOutputHwnd,stdOut stdErr)
-    
-    ; NOTE:  If you try to separate StdErr while streaming output, be careful.
-    ; The error messages won't be inline with the rest of the data, and it can
-    ; be difficult to know which errors pertain to parts of your command batch.
-    ; You will need to keep track of which command was last run and organize
-    ; the error messages yourself.  Use .lastCmd and .cmdHistory properties
-    ; in the callback functions to know which command was run that generated
-    ; the errors.
+    ; This example uses the PromptCallback function.  See prompt_cb() below.
 }
 ; ============================================================================
 ; ============================================================================
@@ -166,18 +150,24 @@ Example7() { ; interactive session example
 		c.close(), c:="" ; delete object and clear previous instance
 	GuiControl, , CmdOutput
 	
-	c := new cli("cmd /K ECHO This is an interactive CLI session. & ECHO. & ECHO Type dir and press ENTER.","mode:sopfr|ID:Console")
+    cmd := "ECHO 'This is an interactive PowerShell console.'`r`n"
+         . "ECHO ''`r`n"
+         . "ECHO 'If you try to use the >> prompt to enter a multi-line statement then you need to end by sending a space as a separate command to get the prompt to return.'`r`n"
+         . "ECHO ''`r`n"
+         . "ECHO 'Try the following sequence:'`r`n"
+         . "ECHO '-> 5+ {ENTER}'`r`n"
+         . "ECHO '-> 5  {ENTER}'`r`n"
+         . "ECHO '-> {SPACE} {ENTER}'`r`n"
+         . "ECHO '   You should see the result 10 afterward.'"
     
-	; Mode "s" for streaming.
-    ; MOde "o" to use StdOutCallback function.
-	; Mode "r" removes the prompt from StdOut.
-	; Mode "p" uses callback function to capture prompt and signals "command complete, executing next command".
+	c := new cli(cmd,"ID:PowerShell|StdoutCallback:stdout_cb|PromptCallback:prompt_cb","powershell")
+    
 	; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
     ;          Use mode "f" with plink (from the pUTTY suite) in this example if you can.
     ;              Putty: https://putty.org/
     ;          This example also works well with Android Debug Bridge (ADB - for android phones).
     ;              ADB SDK: https://developer.android.com/studio/#command-tools
-    ;              Platform-Tools only (extra small): https://developer.android.com/studio/releases/platform-tools
+    ;              Platform-Tools (extra small): https://developer.android.com/studio/releases/platform-tools
     
     Gui, Cmd:default
     GuiControl, Focus, CmdInput
@@ -189,67 +179,66 @@ Example8() { ; mode "m" example
 	If (IsObject(c))
 		c.close(), c:="" ; close previous instance first.
 	
-    ; ========================================================================================
-    ; Optional wget.exe example:
-    ; ========================================================================================
-	; 1) download wget.exe from https://eternallybored.org/misc/wget/
-	; 2) unzip it in the same folder as this script
-	; 3) Comment lines 229-233 below.
-    ; 4) Uncomment lines 210+211 or 213+214, and uncomment options at line 215.
-	; ========================================================================================
-	; The file downloaded in this example is the Windows Android SDK (the small version).
-	; Home Page:   https://developer.android.com/studio/releases/platform-tools
-	;
-	; In this wget.exe example, you can isolate the incrementing percent and incorporate the
-    ; text animation as part of your GUI.  See the obj.GetLastLine() method which makes it easy
-    ; to isolate the progress bar.  Use the StdOut callback function to put the progress bar
-    ; or incrementing percent in a text box, status bar, title bar, etc.
-	; ========================================================================================
-	
-	; Uncomment one of the cmd vars below (don't forget the 2nd line).  And uncomment options line 215.
-    ; cmd := "cmd /K wget https://dl.google.com/android/repository/commandlinetools-win-6609375_latest.zip`r`n" ; big version
-         ; . "ECHO " done
+    If !FileExist("wget.exe") {
+        Msgbox % "This example requires wget.  Please see the comments in example 8."
+        return
+    }
     
-	; cmd := "cmd /K wget https://dl.google.com/android/repository/platform-tools-latest-windows.zip`r`n" ; small version
-         ; . "ECHO " done
-	; options := "mode:m(100,10)o|ID:modeM|QuitString:" done ; In this case, 10 or less lines work best.
-											; With the obj.GetLastLine() funciton, it doesn't really
-											; matter how many lines you use, but capturing a
-											; smaller console will always perform better.
-	
 	; ========================================================================================
-	; Using 1 row may have unwanted side effects.  The last printed line may overwrite the
-	; previous line. If the previous line is longer than the last line, then you may see
-	; the remenants of the previous line.
-	; ========================================================================================
-	; ========================================================================================
-	; ========================================================================================
-	
-	; comment out the below "cmd" and "options" vars to use the wget.exe example.
-	cmd := "cmd /K dir C:\Windows\System32`r`n"
-         . "ping 127.0.0.1`r`n"
-         . "ping 127.0.0.1`r`n"
-         . "echo " done ; "done" is set as global above
-	options := "mode:m(100,20)orp|ID:modeM|QuitString:" done ; console size = 100 columns / 5 rows
-	
-	c := new cli(cmd,options)
+    ; wget.exe example:
+    ; ========================================================================================
+    ; 1) download wget.exe from https://eternallybored.org/misc/wget/
+    ; 2) unzip it in the same folder as this script
+    ; ========================================================================================
+    ; The file downloaded in this example is the Windows Android SDK (the medium version).
+    ; Home Page:   https://developer.android.com/studio/releases/platform-tools
+    ;
+    ; In this wget.exe example, you can isolate the incrementing percent and incorporate the
+    ; text animation as part of your GUI.
+    ;
+    ; You will want to use the StdOutCallback function to capture the animation in realtime,
+    ; and then you will want to use the PromptCallback function to detect when the operation
+    ; is complete.  Or use the QuitCallback/QuitString to detect the end of the operation.
+    ; ========================================================================================
+    
+    cmd := "wget https://dl.google.com/android/repository/commandlinetools-win-6609375_latest.zip" ; big version
+    ; cmd := "wget https://dl.google.com/android/repository/platform-tools-latest-windows.zip" ; small version
+    
+    ; ========================================================================================
+    ; Using 1 row may have unwanted side effects.  The last printed line may overwrite the
+    ; previous line. If the previous line is longer than the last line, then you may see
+    ; the remenants of the previous line.  Use at least 2 rows.
+    ; ========================================================================================
+    
+    ; cmd := "" ; uncomment this to try an interactive session with mode "m"
+    c := new cli(cmd,"mode:m(150,10)|ID:mode_M|StdoutCallback:stdout_cb|QuitCallback:quit_cb") ; console size = 150 columns / 10 rows
+    
+    ; For the size of the console, smaller is better.  Just make sure it is big enough to be able
+    ; to capture what you want.  You may have to experiment with the console size a bit until you
+    ; get the output displayed the way you want.
+    ;
+    ; Please be aware that this is for captureing animations only.  Mode "m" is NOT good for
+    ; accurate and complete data collection.  Test your command to see if it already spits
+    ; out the data you want to stdout.  If it does, then you would usually be better off not
+    ; using mode "m", and just parsing stdout in the StdoutCallback function.
 }
 
 ; ============================================================================
 ; Callback Functions
 ; ============================================================================
-QuitCallback(quitStr,ID,cliObj) { ; stream until user-defined QuitString is encountered (optional).
+quit_cb(quitStr,ID,cliObj) { ; stream until user-defined QuitString is encountered (optional).
     If (ID = "ModeM")
         GuiControl, , %CmdOutputHwnd%, Download Complete.
     MsgBox % "QuitString encountered:`r`n`t" quitStr "`r`n`r`nWhatever you choose to do in this callback functions will be done."
 }
 
-StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
-	If (ID = "Console")
+stdout_cb(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
+    ; dbg("    data: " data)
+    
+	If (ID = "Console_Streaming" Or ID = "Console_Simple") 
 		AppendText(CmdOutputHwnd,data) ; append data to edit box
 	Else If (ID = "modeM") {
         lastLine := cliObj.GetLastLine(data) ; capture last line containing progress bar and percent.
-        prompt := cliObj.getPrompt(data)
         a := StrSplit(lastLine,"["), p1 := a[1], a := StrSplit(p1," "), p2 := a[a.Length()]
         msg := "========================================================`r`n"
              . "This is the captured console grid.`r`n"
@@ -264,14 +253,21 @@ StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
     }
 }
 
-StdErrCallback(data,ID,cliObj) { ; Handle StdErr data as it streams (optional).
-	If (ID = "Console")
-		AppendText(CmdOutputHwnd,data)
-}
-
-PromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: cliPromptCallback()
+prompt_cb(prompt,ID,cliObj) { ; cliPrompt callback function --- default: cliPromptCallback()
 	Gui, Cmd:Default ; need to set GUI as default if NOT using control HWND...
 	GuiControl, , CmdPrompt, ========> new prompt =======> %prompt% ; set Text control to custom prompt
+    
+    If (ID = "error") {
+        stdOut := ">>> StdOut:`r`n" RTrim(cliObj.stdout,"`r`n`t") "`r`n`r`n"
+        stdErr := ">>> StdErr:`r`n" RTrim(cliObj.stderr,"`r`n`t") "`r`n`r`n"
+        GuiControl, , %CmdOutputHwnd%, % stdOut stdErr ; write / overwrite data to edit box
+        cliobj.stdOut := "", cliobj.stdErr := ""
+    } Else If (ID = "PowerShell") {
+        err := cliObj.stderr
+        out := cliObj.clean_lines(cliObj.stdout)
+        out .= (InStr(prompt,">>")?"`r`n>>":"") ; append >> to output edit when that prompt is used
+        AppendText(CmdOutputHwnd, "`r`n" (err?err:"") out)
+    }
 }
 ; ============================================================================
 ; send command to CLI instance when user presses ENTER
@@ -314,13 +310,20 @@ AppendText(hEdit, sInput, loc="bottom") {
     SendMessage, 0x00C2, False, &sInput,, ahk_id %hEdit%			;EM_REPLACESEL
 }
 
+dbg(_in) {
+    Loop, Parse, % _in, `n, `r
+        OutputDebug, AHK: %A_LoopField%
+}
+
 ; ================================================================================
 ; hotkeys
 ; ================================================================================
 
+
+
 #IfWinActive, ahk_class AutoHotkeyGUI
 ^c::c.KeySequence("^c")
-^CtrlBreak::c.CtrlBreak()
-^b::c.CtrlBreak()			; in case user doesn't have BREAK key
+^CtrlBreak::c.KeySequence("^{CtrlBreak}")
+^b::c.KeySequence("^{CtrlBreak}")			; in case user doesn't have BREAK key
 ^x::c.close()				; closes active CLi instance if idle
 ^d::c.KeySequence("^d")

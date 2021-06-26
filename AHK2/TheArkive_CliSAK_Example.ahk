@@ -41,6 +41,7 @@ CmdGui() {
     oGui["CmdInput"].Focus()
 }
 
+
 ShowWindow(oCtl,Info) {
     Global c
     WinShow "ahk_pid " c.pid
@@ -83,6 +84,7 @@ Example1(oCtl,Info) { ; simple example
     oGui["CmdOutput"].Value := ""
     
     output := CliData("dir") ; CliData() easy wrapper, no fuss, no muss
+    
     AppendText(oGui["CmdOutput"].hwnd,output)
 }
 ; ============================================================================
@@ -97,7 +99,9 @@ Example2(oCtl,Info) { ; simple example, short delay
     output := CliData("dir " Chr(34) A_WinDir "\System32" Chr(34))
     
     AppendText(oGui["CmdOutput"].hwnd,output)
-    MsgBox "There was a delay because there was lots of data, but now it's done."
+    MsgBox "There was a delay because there was lots of data.`r`n`r`n"
+         . "The GUI also stopped responding for a short time.  This is normal when using the wrapper function.`r`n`r`n"
+         . "It is best to only use the CliData() wrapper function when the expected command duration is short."
 }
 ; ============================================================================
 ; ============================================================================
@@ -110,9 +114,10 @@ Example3(oCtl,Info) { ; streaming example
     
     cmd := "dir C:\Windows\System32`r`n"
          . "ECHO. & ECHO This is similar to Example #2, except the output was streaming in realtime.`r`n"
+         . "ECHO. & ECHO This session is just spitting out everything it sees from stdout.`r`n"
          . "ECHO. & ECHO This session is still active."
     
-    c := cli(cmd,"ID:Console_Simple","cmd")
+    c := cli(cmd,"ID:Console_Simple|StdoutCallback:stdout_cb","cmd")
 }
 ; ============================================================================
 ; ============================================================================
@@ -123,10 +128,10 @@ Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands
         c.close(), c:=""            ; need access to an ssh server, and/or an ADB setup
     oGui["CmdOutput"].Value := ""   ; and an android phone.
     
-    batch := "ECHO. & ECHO This is an interactive prompt using streaming mode, like Example #3.`r`n"
+    batch := "ECHO This is an interactive prompt using streaming mode, like Example #3.`r`n"
            . "ECHO. & ECHO But in this example, you can experiment with SSH (plink in particular) and ADB (Android Debug Bridge).`r`n"
     
-    c := cli(batch,"ID:Console_Streaming|mode:f") ; mode f = filter control codes from SSH and older ADB shell sessions.
+    c := cli(batch,"ID:Console_Streaming|mode:f|StdoutCallback:stdout_cb","powershell") ; mode f = filter control codes from SSH and older ADB shell sessions.
 }
 
 ; ============================================================================
@@ -144,7 +149,7 @@ Example5(oCtl,Info) { ; CTRL+C and CTRL+Break examples ; if you need to copy, di
     cmd := "ping 127.0.0.1`r`n"
          . "ping 127.0.0.1`r`n"
          . "ECHO. & ECHO The session is still active."
-    c := cli(cmd,"ID:Console_Streaming")
+    c := cli(cmd,"ID:Console_Streaming|StdoutCallback:stdout_cb")
 }
 ; ============================================================================
 ; ============================================================================
@@ -155,7 +160,9 @@ Example6(oCtl,Info) { ; stderr example
         c.close(), c:=""                    ; completes, so it is easy to check errors in
     oGui["CmdOutput"].Value := ""           ; conjunction with the output of each command.
     
-    c := cli("dir poof","mode:x|ID:error")  ; Mode "x" separates StdErr from StdOut.
+    c := cli("dir poof","mode:x|ID:error|StdoutCallback:stdout_cb|PromptCallback:prompt_cb")  ; Mode "x" separates StdErr from StdOut.
+    
+    ; This example uses the PromptCallback function.  See prompt_cb() below.
 }
 ; ============================================================================
 ; ============================================================================
@@ -164,7 +171,6 @@ Example7(oCtl,Info) {
     Global oGui, c
     If (IsObject(c))
         c.close(), c:="" ; delete object and clear previous instance
-    oGui["CmdOutput"].Value := "This is an interactive Powershell console.`r`n`r`n"
     
     cmd := "ECHO 'This is an interactive PowerShell console.'`r`n"
          . "ECHO ''`r`n"
@@ -176,14 +182,14 @@ Example7(oCtl,Info) {
          . "ECHO '-> {SPACE} {ENTER}'`r`n"
          . "ECHO '   You should see the result 10 afterward.'"
     
-    c := cli(cmd,"mode:x|ID:PowerShell","powershell")
+    c := cli(cmd,"ID:PowerShell|StdoutCallback:stdout_cb|PromptCallback:prompt_cb","powershell")
     
     ; Mode "f" filters control codes, such as when logged into an SSH server hosted on a linux machine.
     ;          Use mode "f" with plink (from the pUTTY suite) in this example.
     ;              Putty: https://putty.org/
     ;          This example also works well with Android Debug Bridge (ADB - for android phones).
     ;              ADB SDK: https://developer.android.com/studio/#command-tools
-    ;              Platform-Tools only (extra small): https://developer.android.com/studio/releases/platform-tools
+    ;              Platform-Tools (extra small): https://developer.android.com/studio/releases/platform-tools
     
     oGui["CmdInput"].Focus()
 }
@@ -212,9 +218,9 @@ Example8(oCtl,Info) { ; mode "m" example
     ; In this wget.exe example, you can isolate the incrementing percent and incorporate the
     ; text animation as part of your GUI.
     ;
-    ; You will want to use the StdOutCallback() function to capture the animation in realtime,
-    ; and then you will want to use the PromptCallback() function to detect when the operation
-    ; is complete.
+    ; You will want to use the StdOutCallback function to capture the animation in realtime,
+    ; and then you will want to use the PromptCallback function to detect when the operation
+    ; is complete.  Or use the QuitCallback/QuitString to detect the end of the operation.
     ; ========================================================================================
     
     cmd := "wget https://dl.google.com/android/repository/commandlinetools-win-6609375_latest.zip" ; big version
@@ -223,16 +229,26 @@ Example8(oCtl,Info) { ; mode "m" example
     ; ========================================================================================
     ; Using 1 row may have unwanted side effects.  The last printed line may overwrite the
     ; previous line. If the previous line is longer than the last line, then you may see
-    ; the remenants of the previous line.
+    ; the remenants of the previous line.  Use at least 2 rows.
     ; ========================================================================================
     
-    c := cli(cmd,"mode:m(150,10)r|ID:mode_M|showWindow:1") ; console size = 150 columns / 10 rows
+    ; cmd := "" ; uncomment this to try an interactive session with mode "m"
+    c := cli(cmd,"mode:m(150,10)|ID:mode_M|StdoutCallback:stdout_cb|QuitCallback:quit_cb") ; console size = 150 columns / 10 rows
+    
+    ; For the size of the console, smaller is better.  Just make sure it is big enough to be able
+    ; to capture what you want.  You may have to experiment with the console size a bit until you
+    ; get the output displayed the way you want.
+    ;
+    ; Please be aware that this is for captureing animations only.  Mode "m" is NOT good for
+    ; accurate and complete data collection.  Test your command to see if it already spits
+    ; out the data you want to stdout.  If it does, then you would usually be better off not
+    ; using mode "m", and just parsing stdout in the StdoutCallback function.
 }
 
 ; ============================================================================
 ; Callback Functions
 ; ============================================================================
-QuitCallback(quitStr,ID,cliObj) { ; no example showing this for now...
+quit_cb(quitStr,ID,cliObj) { ; no example showing this for now...
     Global oGui
     If (ID = "ModeM")
         oGui["CmdOutput"].Value := "Download Complete"
@@ -241,7 +257,7 @@ QuitCallback(quitStr,ID,cliObj) { ; no example showing this for now...
          . "This could be used to terminate a batch before completion if desired."
 }
 
-StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
+stdout_cb(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
     Global oGui
     If (ID = "Console_Streaming" Or ID = "Console_Simple") {
         AppendText(oGui["CmdOutput"].hwnd, data)
@@ -272,26 +288,19 @@ StdOutCallback(data,ID,cliObj) { ; Handle StdOut data as it streams (optional)
     }
 }
 
-PromptCallback(prompt,ID,cliObj) { ; cliPrompt callback function --- default: PromptCallback()
+prompt_cb(prompt,ID,cliObj) { ; cliPrompt callback function --- default: PromptCallback()
     Global oGui
     oGui["CmdPrompt"].Text := prompt                            ; echo prompt to text control in GUI
     
-    If (ID = "Console_Streaming") {
-        cliObj.stdout := ""
-    } Else If (ID = "Console_Simple") {                         ; >>> simple console example
-        cliObj.stdout := ""                                     ; clear StdOut/StdErr for a proper interactive console.
-    } Else If (ID = "error" And cliObj.Ready) {
+    If (ID = "error" And cliObj.Ready) {
         stdOut := ">>> StdOut:`r`n" RTrim(cliObj.stdout,"`r`n`t") "`r`n`r`n"
         stdErr := ">>> StdErr:`r`n" RTrim(cliObj.stderr,"`r`n`t") "`r`n`r`n"
         oGui["CmdOutput"].Value := stdOut stdErr
-        cliobj.stdOut := "", cliobj.stdErr := ""
     } Else If (ID = "PowerShell") {                             ; >>> more complex interactive console example
         err := cliObj.stderr
         out := cliObj.clean_lines(cliObj.stdout)
         out .= (InStr(prompt,">>")?"`r`n>>":"") ; append >> to output edit when that prompt is used
         AppendText(oGui["CmdOutput"].hwnd, "`r`n" (err?err:"") out)
-        
-        cliObj.stdout := "", cliObj.stderr := "" ; clear StdOut/StdErr for a proper interactive console.
         
     } Else If (ID = "mode_M")                                   ; >>> mode "m" example capturing incrementing percent
         oGui["CmdOutput"].Value := "Download complete."
@@ -324,6 +333,11 @@ SendCmd() { ; timer label from WM_KEYDOWN
 ; ================================================================================
 ; ================================================================================
 
+dbg(_in) {
+    Loop Parse _in, "`n", "`r"
+        OutputDebug "AHK: " A_LoopField
+}
+
 ; ================================================================================
 ; AppendText(hEdit, ptrText)
 ; example: AppendText(ctlHwnd, &varText)
@@ -347,5 +361,8 @@ AppendText(hEdit, sInput, loc:="bottom") {
 ^c::c.KeySequence("^c")
 ^CtrlBreak::c.KeySequence("^{CtrlBreak}")
 ^b::c.KeySequence("^{CtrlBreak}")   ; in case user doesn't have BREAK key
-^x::c.close()                        ; closes active CLi instance if idle
+^x::{
+    Global c
+    c.close()                        ; closes active CLi instance if idle
+}
 ^d::c.KeySequence("^d")
