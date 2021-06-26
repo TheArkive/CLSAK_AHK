@@ -550,7 +550,9 @@ class cli {
         If (InStr(this.mode,"(") And InStr(this.mode,")") And this.m) ; mode "m" !!
             s1 := InStr(this.mode,"("), e1 := InStr(this.mode,")"), mParam := SubStr(this.mode,s1+1,e1-s1-1), dParam := StrSplit(mParam,",")
           , conWidth := dParam[1], conHeight := dParam[2], this.conWidth := conWidth, this.conHeight := conHeight
-        (this.m) ? this.params .= " -Command MODE CON: COLS=" this.conWidth " LINES=" this.conHeight : ""
+        (this.m) && (this._env = "powershell") ? (this.params .= " -Command") : ""
+        (this.m) ? this.params .= " MODE CON: COLS=" this.conWidth " LINES=" this.conHeight : ""
+        
         
         ; r1 := DllCall("CreatePipe","UPtr*",hStdInRd,"UPtr*",hStdInWr,"Uint",0,"Uint",0) ; AHK v1
         r1 := DllCall("CreatePipe","UPtr*",&hStdInRd:=0,"UPtr*",&hStdInWr:=0,"Uint",0,"Uint",0)   ; get handle - stdIn (R/W)
