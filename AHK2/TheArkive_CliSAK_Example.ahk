@@ -129,7 +129,7 @@ Example4(oCtl,Info) { ; batch example, pass multi-line var for batch commands
     batch := "ECHO This is an interactive prompt using streaming mode, like Example #3.`r`n"
            . "ECHO. & ECHO But in this example, you can experiment with SSH (plink in particular) and ADB (Android Debug Bridge).`r`n"
     
-    c := cli(batch,"ID:Console_Streaming|mode:f|StdoutCallback:stdout_cb","powershell") ; mode f = filter control codes from SSH and older ADB shell sessions.
+    c := cli(batch,"ID:Console_Streaming|mode:f|StdoutCallback:stdout_cb") ; mode f = filter control codes from SSH and older ADB shell sessions.
 }
 
 ; ============================================================================
@@ -169,6 +169,7 @@ Example7(oCtl,Info) {
     Global oGui, c
     If (IsObject(c))
         c.close(), c:="" ; delete object and clear previous instance
+    oGui["CmdOutput"].Value := ""
     
     cmd := "ECHO 'This is an interactive PowerShell console.'`r`n"
          . "ECHO ''`r`n"

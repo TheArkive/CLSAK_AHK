@@ -996,9 +996,9 @@ class cli {
         t := Type(cb) ; AHK v2 only
         
         If (this.ver=2) {
-            If (t = "String")
+            If (t = "String") {
                 Try (f := %cb%)
-            Else If (t = "Func") || (t = "Closure") || (t = "BoundFunc")
+            } Else If (t = "Func") || (t = "Closure") || (t = "BoundFunc")
                 f := cb
         } Else {
             ; If IsFunc(cb)           ; AHK v1
