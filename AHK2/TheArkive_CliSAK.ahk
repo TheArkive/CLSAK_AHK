@@ -607,7 +607,7 @@ class cli {
             , "UPtr", si.ptr                 ; startup info structure - contains stdIn/Out handles
             , "UPtr", pi.ptr)                ; process info sttructure - contains proc/thread handles/IDs
         
-        dbg("env: " this.env " / params: " this.params)
+        ; dbg("env: " this.env " / params: " this.params)
         
         if (r) {
             this.pID := NumGet(pi, p * 2, "UInt")       ; get Process ID and Thread ID
@@ -766,7 +766,7 @@ class cli {
                 return
             }
             
-            dbg("    buffer: " buf)
+            ; dbg("    buffer: " buf)
             
             this.stdout .= buf
             
@@ -807,7 +807,7 @@ class cli {
         prompt := StrReplace(StrReplace(prompt,"`r",""),"`n","")
         cbPrompt := this.CheckCallback(this.PromptCallback)
         
-        dbg("cli() prompt event: ready: " this.ready " / prompt: " prompt)
+        ; dbg("cli() prompt event: ready: " this.ready " / prompt: " prompt)
         (this.ready) ? this.batchProgress += 1 : ""         ; increment batchProgress / when this is 1, the first command has been completed.
         
         If (this.AutoClean) {
@@ -850,7 +850,7 @@ class cli {
         this.batchCmd := obj.batch
         this.cmdHistory .= (this.cmdHistory?"`r`n":"") obj.first
         
-        dbg("   c.write(): " obj.first " / shell: " this.shell)
+        ; dbg("   c.write(): " obj.first " / shell: " this.shell)
         f := FileOpen(this.hStdIn, "h", this.codepage), f.Write(obj.first "`r`n"), f.close(), f := "" ; send cmd
         
         If (this.use_check_shell && !this.m) ; check shell
